@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PeerMark</title>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1f2435;
+  --surface3: #252a3d;
+  --border: #2e3450;
+  --border2: #3a4060;
+  --text: #e8eaf0;
+  --text2: #8b90a8;
+  --text3: #5a5f78;
+  --accent: #4f8ef7;
+  --accent2: #3a6fd4;
+  --green: #3ecf8e;
+  --green2: #2aa870;
+  --amber: #f5a623;
+  --red: #f05252;
+  --red2: #c53030;
+  --r: 8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Instrument Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:15px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* LOADING SCREEN */
+#loading-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;
+}
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-msg{color:var(--text2);font-size:0.88rem}
+
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:200;
+  background:rgba(15,17,23,0.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1.75rem;height:52px;
+}
+.brand{font-family:'Fraunces',serif;font-size:1.35rem;color:var(--text);letter-spacing:-0.03em;display:flex;align-items:center;gap:0.5rem}
+.brand-dot{color:var(--accent);font-size:1.6rem;line-height:0.5}
+.nav-center{display:flex;gap:0}
+.nav-tab{
+  padding:0 1rem;height:52px;display:flex;align-items:center;
+  font-size:0.8rem;font-weight:500;letter-spacing:0.04em;text-transform:uppercase;
+  color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;
+  transition:color 0.2s,border-color 0.2s;user-select:none;
+}
+.nav-tab:hover{color:var(--text2)}
+.nav-tab.active{color:var(--text);border-bottom-color:var(--accent)}
+.nav-tab.hidden{display:none}
+.nav-right{display:flex;align-items:center;gap:0.75rem}
+.user-chip{
+  display:flex;align-items:center;gap:0.5rem;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:0.25rem 0.85rem 0.25rem 0.5rem;
+  font-size:0.78rem;color:var(--text2);
+}
+.user-avatar{width:22px;height:22px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;color:white;flex-shrink:0}
+.role-badge{font-size:0.68rem;padding:0.1rem 0.45rem;border-radius:10px;font-weight:600}
+.role-instructor{background:rgba(79,142,247,0.15);color:#7ab0ff;border:1px solid rgba(79,142,247,0.25)}
+.role-student{background:rgba(62,207,142,0.12);color:#5edfaa;border:1px solid rgba(62,207,142,0.2)}
+.btn-signout{background:transparent;border:1px solid var(--border2);color:var(--text3);padding:0.3rem 0.75rem;border-radius:6px;cursor:pointer;font-size:0.75rem;font-family:'Instrument Sans',sans-serif;transition:all 0.15s}
+.btn-signout:hover{border-color:var(--red);color:var(--red)}
+
+/* WRAP */
+.wrap{max-width:1140px;margin:0 auto;padding:2rem 1.75rem}
+.page{display:none;animation:up 0.25s ease}
+.page.active{display:block}
+@keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* TYPOGRAPHY */
+h1{font-family:'Fraunces',serif;font-size:2rem;font-weight:600;letter-spacing:-0.04em;line-height:1.15}
+h2{font-family:'Fraunces',serif;font-size:1.25rem;font-weight:600;letter-spacing:-0.03em}
+h3{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:0.6rem}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:1rem;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid var(--border)}
+.sub{color:var(--text2);font-size:0.88rem;margin-top:0.3rem}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.4rem}
+.card+.card{margin-top:1rem}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+@media(max-width:680px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1.1rem 1.3rem}
+.stat-label{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);margin-bottom:0.4rem}
+.stat-val{font-family:'Fraunces',serif;font-size:1.9rem;line-height:1;color:var(--text)}
+.stat-note{font-size:0.75rem;color:var(--text3);margin-top:0.25rem}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:0.4rem;padding:0.55rem 1.2rem;border-radius:6px;border:none;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:0.85rem;font-weight:600;transition:all 0.15s}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important}
+.btn-primary{background:var(--accent);color:white}
+.btn-primary:hover:not(:disabled){background:var(--accent2);transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-ghost:hover:not(:disabled){border-color:var(--text2);color:var(--text)}
+.btn-green{background:var(--green);color:#0a2e1e}
+.btn-green:hover:not(:disabled){background:var(--green2)}
+.btn-red{background:var(--red);color:white}
+.btn-sm{padding:0.3rem 0.75rem;font-size:0.78rem}
+.btn-xs{padding:0.2rem 0.55rem;font-size:0.72rem}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:0.3rem;padding:0.18rem 0.6rem;border-radius:20px;font-size:0.72rem;font-weight:600}
+.badge-blue{background:rgba(79,142,247,0.15);color:#7ab0ff;border:1px solid rgba(79,142,247,0.25)}
+.badge-green{background:rgba(62,207,142,0.12);color:#5edfaa;border:1px solid rgba(62,207,142,0.2)}
+.badge-amber{background:rgba(245,166,35,0.12);color:#f5c842;border:1px solid rgba(245,166,35,0.2)}
+.badge-red{background:rgba(240,82,82,0.12);color:#f87171;border:1px solid rgba(240,82,82,0.2)}
+.badge-grey{background:var(--surface3);color:var(--text2);border:1px solid var(--border)}
+
+/* FORMS */
+label{display:block;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:0.35rem}
+input[type=text],input[type=number],input[type=date],input[type=email],textarea,select{
+  width:100%;padding:0.55rem 0.85rem;
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  font-family:'Instrument Sans',sans-serif;font-size:0.88rem;color:var(--text);
+  outline:none;transition:border-color 0.2s;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+select option{background:var(--surface2)}
+textarea{resize:vertical;min-height:80px;line-height:1.6}
+.frow{margin-bottom:1rem}
+.frow:last-child{margin-bottom:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+@media(max-width:600px){.grid2{grid-template-columns:1fr}}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+thead th{padding:0.6rem 0.9rem;font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+tbody td{padding:0.75rem 0.9rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--surface2)}
+
+/* PROGRESS BAR */
+.bar-wrap{display:flex;align-items:center;gap:0.6rem}
+.bar{height:6px;border-radius:3px;background:var(--surface3);flex:1;min-width:60px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width 0.6s ease}
+.bar-num{font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text2);min-width:36px;text-align:right}
+
+/* TOAST */
+.toast{
+  position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);padding:0.8rem 1.2rem;border-radius:8px;
+  font-size:0.88rem;box-shadow:0 8px 32px rgba(0,0,0,0.4);
+  display:flex;align-items:center;gap:0.6rem;max-width:340px;
+  transform:translateY(80px);opacity:0;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.toast.show{transform:translateY(0);opacity:1}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px)}
+.overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;padding:1.75rem;max-width:560px;width:100%;box-shadow:0 24px 64px rgba(0,0,0,0.5);animation:modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1)}
+@keyframes modalIn{from{opacity:0;transform:scale(0.92)}to{opacity:1;transform:scale(1)}}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:1.3rem;line-height:1;padding:0.15rem}
+.modal-close:hover{color:var(--text)}
+.modal-foot{display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border)}
+
+hr{border:none;border-top:1px solid var(--border);margin:1.25rem 0}
+.sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border2);border-radius:8px;padding:2rem;text-align:center;cursor:pointer;transition:all 0.2s;background:var(--surface2)}
+.upload-zone:hover{border-color:var(--accent);background:rgba(79,142,247,0.05)}
+
+/* MARKING */
+.mark-peer-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:0.75rem;transition:all 0.2s}
+.mark-peer-card.active-mark{border-color:var(--accent);background:rgba(79,142,247,0.04)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:3px;background:var(--surface3);outline:none;cursor:pointer;border:none;padding:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg);box-shadow:0 2px 8px rgba(79,142,247,0.4)}
+.slider-row{display:flex;align-items:center;gap:0.75rem;margin-bottom:0.85rem}
+.slider-val{font-family:'JetBrains Mono',monospace;font-size:0.88rem;color:var(--accent);min-width:40px;text-align:right}
+
+/* LOCKOUT */
+.lockout-banner{background:rgba(240,82,82,0.08);border:1px solid rgba(240,82,82,0.25);border-radius:var(--r);padding:2.5rem;text-align:center}
+.lockout-icon{font-size:3rem;margin-bottom:1rem}
+.lockout-title{font-family:'Fraunces',serif;font-size:1.5rem;color:var(--red);margin-bottom:0.5rem}
+.lockout-text{color:var(--text2);font-size:0.9rem;line-height:1.6;max-width:400px;margin:0 auto}
+
+/* RESULTS */
+.result-score-big{font-family:'Fraunces',serif;font-size:3.5rem;line-height:1;font-weight:600;letter-spacing:-0.04em}
+.peer-feedback-item{background:var(--surface3);border-left:3px solid var(--border2);border-radius:0 6px 6px 0;padding:0.85rem 1rem;margin-bottom:0.6rem;font-size:0.85rem;color:var(--text2);line-height:1.6;font-style:italic}
+
+/* MOD ROW */
+.mod-row{display:flex;align-items:center;gap:1rem;padding:0.85rem 1rem;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.mod-row:last-child{border-bottom:none}
+.mod-name{font-weight:500;min-width:160px}
+.mod-scores{font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--text3);flex:1}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+.dot-green{background:var(--green)}.dot-amber{background:var(--amber)}.dot-red{background:var(--red)}
+
+/* ERROR */
+.error-state{text-align:center;padding:3rem;color:var(--text3)}
+.error-icon{font-size:2.5rem;margin-bottom:0.75rem;opacity:0.4}
+
+/* GROUP CHIP */
+.member-chip{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:0.15rem 0.55rem;font-size:0.75rem;color:var(--text2);font-family:'JetBrains Mono',monospace;display:inline-block;margin:0.2rem}
+.member-chip.done{border-color:rgba(62,207,142,0.3);color:var(--green);background:rgba(62,207,142,0.08)}
+.member-chip.failed{border-color:rgba(240,82,82,0.3);color:var(--red);background:rgba(240,82,82,0.08)}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading-screen">
+  <div style="font-family:'Fraunces',serif;font-size:1.8rem;letter-spacing:-0.04em;margin-bottom:1.5rem">PeerMark<span style="color:var(--accent)">·</span></div>
+  <div class="spinner"></div>
+  <div id="loading-msg">Signing you in…</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span id="toast-icon">✓</span><span id="toast-msg"></span></div>
+
+<!-- MODAL: New Assignment -->
+<div class="overlay" id="modal-new">
+  <div class="modal">
+    <div class="modal-head"><h2>New Assignment</h2><button class="modal-close" onclick="closeModal('modal-new')">✕</button></div>
+    <div class="frow"><label>Assignment title</label><input type="text" id="m-title" placeholder="e.g. Reflective Essay — Week 6"></div>
+    <div class="grid2">
+      <div class="frow"><label>Module code</label><input type="text" id="m-mod" placeholder="CS401"></div>
+      <div class="frow"><label>Academic year</label><input type="text" id="m-year" placeholder="2025/26"></div>
+    </div>
+    <div class="grid2">
+      <div class="frow"><label>Submission deadline</label><input type="date" id="m-sub"></div>
+      <div class="frow"><label>Marking deadline</label><input type="date" id="m-mark"></div>
+    </div>
+    <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="10">0–10</option><option value="20" selected>0–20</option><option value="100">0–100</option></select></div>
+    <div class="frow"><label>Anonymous peer marking?</label><select id="m-anon"><option value="1">Yes — hide student names</option><option value="0">No — show names</option></select></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancel</button>
+      <button class="btn btn-primary" id="btn-create-assignment" onclick="createAssignment()">Create →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Criteria -->
+<div class="overlay" id="modal-criteria">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head"><h2>Marking Criteria</h2><button class="modal-close" onclick="closeModal('modal-criteria')">✕</button></div>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:1.25rem">Weights must sum to 100%.</p>
+    <div id="criteria-editor"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addCriterion()" style="margin-top:0.75rem">+ Add criterion</button>
+    <div id="weight-warning" style="display:none;color:var(--amber);font-size:0.82rem;margin-top:0.75rem"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-criteria')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCriteria()">Save to SharePoint</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Student detail -->
+<div class="overlay" id="modal-detail">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head"><h2 id="detail-name">Student Detail</h2><button class="modal-close" onclick="closeModal('modal-detail')">✕</button></div>
+    <div id="detail-body"></div>
+    <div class="modal-foot"><button class="btn btn-ghost" onclick="closeModal('modal-detail')">Close</button></div>
+  </div>
+</div>
+
+<nav id="main-nav" style="display:none">
+  <div class="brand">PeerMark<span class="brand-dot">·</span></div>
+  <div class="nav-center">
+    <div class="nav-tab active" onclick="nav('dashboard')">Dashboard</div>
+    <div class="nav-tab" onclick="nav('groups')" id="tab-groups">Groups</div>
+    <div class="nav-tab" onclick="nav('marking')">Marking</div>
+    <div class="nav-tab hidden" onclick="nav('moderation')" id="tab-moderation">Moderation</div>
+    <div class="nav-tab hidden" onclick="nav('results')" id="tab-results">Results</div>
+  </div>
+  <div class="nav-right">
+    <div class="user-chip">
+      <div class="user-avatar" id="user-avatar">?</div>
+      <span id="user-name">Loading…</span>
+      <span class="role-badge" id="role-badge">…</span>
+    </div>
+    <button class="btn-signout" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="page-head">
+    <div><h1>Dashboard</h1><p class="sub" id="dash-sub">Loading…</p></div>
+    <div style="display:flex;gap:0.75rem" id="dash-instructor-actions" style="display:none">
+      <button class="btn btn-ghost" onclick="openCriteriaModal()">Edit Criteria</button>
+      <button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>
+    </div>
+  </div>
+  <div id="dash-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+<!-- GROUPS -->
+<div class="page" id="page-groups">
+  <div class="page-head">
+    <div><h1>Groups</h1><p class="sub">Import student groups from CSV or Moodle export</p></div>
+    <div style="display:flex;gap:0.75rem">
+      <button class="btn btn-ghost btn-sm" onclick="downloadSampleCSV()">⬇ Sample CSV</button>
+      <button class="btn btn-primary" onclick="document.getElementById('csv-input').click()">Import CSV</button>
+      <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(event)">
+    </div>
+  </div>
+  <div id="groups-content">
+    <div class="card" style="text-align:center;padding:3rem">
+      <div class="upload-zone" onclick="document.getElementById('csv-input').click()">
+        <div style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4">📋</div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Drop your CSV or Moodle export here</div>
+        <div style="font-size:0.82rem;color:var(--text3)">Expected columns: <code style="color:var(--accent)">student_id, name, email, group</code></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MARKING -->
+<div class="page" id="page-marking">
+  <div class="page-head">
+    <div><h1 id="marking-title">Peer Marking</h1><p class="sub" id="marking-sub">Loading…</p></div>
+    <div id="marking-prog-wrap" style="display:flex;align-items:center;gap:1rem">
+      <div style="font-size:0.82rem;color:var(--text2)">Progress</div>
+      <div class="bar-wrap" style="width:160px"><div class="bar"><div class="bar-fill" id="marking-prog-bar" style="width:0%;background:var(--green)"></div></div><div class="bar-num" id="marking-prog-txt">0/0</div></div>
+    </div>
+  </div>
+  <div id="marking-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+<!-- MODERATION -->
+<div class="page" id="page-moderation">
+  <div class="page-head">
+    <div><h1>Moderation</h1><p class="sub">Review marks, override where needed, then release</p></div>
+    <div style="display:flex;gap:0.75rem">
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-green" onclick="releaseResults()">Release Results to Students</button>
+    </div>
+  </div>
+  <div id="moderation-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+<!-- RESULTS -->
+<div class="page" id="page-results">
+  <div class="page-head">
+    <div><h1>Results</h1><p class="sub" id="results-sub">Peer assessment results</p></div>
+    <div id="results-instructor-actions" style="display:none;gap:0.75rem">
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+  </div>
+  <div id="results-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+// =====================================================
+// CONFIG — all IDs wired in
+// =====================================================
+const CONFIG = {
+  clientId:  "c75873c8-bc64-402b-9863-45966f1a7514",
+  tenantId:  "67bda7ee-fd80-41ef-ac91-358418290a1e",
+  siteId:    "uniofnottm.sharepoint.com,9ce01f9b-876f-4fec-92f6-002af6ffdab2,5408bd4e-bd2b-4a08-9f41-d51703f2c177",
+  redirectUri: "https://uniofnottm.sharepoint.com/:u:/r/sites/Jonathan/Shared%20Documents/General/peermark.html",
+  lists: {
+    assignments: "0dacb4e5-1e00-487c-9b0a-fdfc42794318",
+    groups:      "df47b0ff-365d-4645-ac2d-c19d02481aa4",
+    students:    "4fe3d9d8-2ca5-40cc-b904-99df54ef8811",
+    criteria:    "f6e2d95b-20e9-4d7b-a1b7-c1eadac1bfc7",
+    reviews:     "04e90ff5-51d2-4188-8be4-5535060ec3e9",
+    results:     "edc6519e-10f6-476c-b8ba-5fce462ff4b3"
+  },
+  // Instructor emails — add yours and any colleagues here
+  instructors: ["jonathan.burley@nottingham.ac.uk"]
+};
+
+const GRAPH = "https://graph.microsoft.com/v1.0";
+const SCOPES = ["https://graph.microsoft.com/Sites.ReadWrite.All"];
+
+// =====================================================
+// MSAL SETUP
+// =====================================================
+const msalInstance = new msal.PublicClientApplication({
+  auth: {
+    clientId:    CONFIG.clientId,
+    authority:   `https://login.microsoftonline.com/${CONFIG.tenantId}`,
+    redirectUri: CONFIG.redirectUri
+  },
+  cache: { cacheLocation: "sessionStorage" }
+});
+
+let currentUser = null;   // { name, email, isInstructor }
+let appState = {
+  assignment: null,       // current assignment object from SharePoint
+  criteria: [],           // criteria rows
+  groups: [],             // group rows
+  students: [],           // student rows
+  reviews: [],            // review rows (instructor only)
+  results: [],            // results rows
+  myStudent: null,        // student record for current user
+  myPeers: [],            // peers in same group
+  myReviews: []           // reviews this student has submitted
+};
+
+// =====================================================
+// AUTH
+// =====================================================
+async function init() {
+  try {
+    setLoading("Handling sign-in…");
+    await msalInstance.handleRedirectPromise();
+
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length === 0) {
+      setLoading("Redirecting to university sign-in…");
+      await msalInstance.loginRedirect({ scopes: SCOPES });
+      return;
+    }
+
+    const account = accounts[0];
+    const email = account.username.toLowerCase();
+    const isInstructor = CONFIG.instructors.includes(email);
+
+    currentUser = {
+      name: account.name || email,
+      email,
+      isInstructor
+    };
+
+    // Update nav user chip
+    document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
+    document.getElementById('user-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
+    document.getElementById('role-badge').textContent = isInstructor ? 'Instructor' : 'Student';
+    document.getElementById('role-badge').className = 'role-badge ' + (isInstructor ? 'role-instructor' : 'role-student');
+
+    // Show/hide nav tabs based on role
+    if (isInstructor) {
+      document.getElementById('tab-moderation').classList.remove('hidden');
+      document.getElementById('tab-results').classList.remove('hidden');
+      document.getElementById('dash-instructor-actions').style.display = 'flex';
+    } else {
+      document.getElementById('tab-groups').classList.add('hidden');
+      document.getElementById('tab-results').classList.remove('hidden');
+    }
+
+    document.getElementById('main-nav').style.display = 'flex';
+    hideLoading();
+
+    // Load initial data
+    await loadApp();
+
+  } catch (err) {
+    console.error(err);
+    setLoading("Sign-in error: " + err.message);
+  }
+}
+
+async function getToken() {
+  const accounts = msalInstance.getAllAccounts();
+  try {
+    const result = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
+    return result.accessToken;
+  } catch (e) {
+    await msalInstance.acquireTokenRedirect({ scopes: SCOPES });
+  }
+}
+
+function signOut() {
+  msalInstance.logoutRedirect();
+}
+
+// =====================================================
+// GRAPH API HELPER
+// =====================================================
+async function graph(method, path, body = null) {
+  const token = await getToken();
+  const opts = {
+    method,
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(`${GRAPH}${path}`, opts);
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`Graph ${method} ${path} → ${res.status}: ${txt}`);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+// Paginated GET — follows @odata.nextLink automatically
+async function graphGetAll(path) {
+  let url = `${GRAPH}${path}`;
+  let all = [];
+  while (url) {
+    const token = await getToken();
+    const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+    if (!res.ok) throw new Error(`Graph GET ${url} → ${res.status}`);
+    const data = await res.json();
+    all = all.concat(data.value || []);
+    url = data['@odata.nextLink'] || null;
+  }
+  return all;
+}
+
+function listPath(listName, extra = '') {
+  return `/sites/${CONFIG.siteId}/lists/${CONFIG.lists[listName]}/items${extra}`;
+}
+
+// =====================================================
+// LOAD APP DATA
+// =====================================================
+async function loadApp() {
+  setLoading("Loading assignment…");
+  try {
+    // Load the most recent assignment
+    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/Created desc&$top=1'));
+    if (items.length > 0) {
+      appState.assignment = { id: items[0].id, ...items[0].fields };
+    }
+
+    // Load criteria
+    if (appState.assignment) {
+      const cItems = await graphGetAll(listPath('criteria', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'&$orderby=fields/SortOrder`));
+      appState.criteria = cItems.map(i => ({ id: i.id, ...i.fields }));
+    }
+
+    hideLoading();
+    renderDashboard();
+
+    // Load groups and students in background
+    if (appState.assignment) {
+      await loadGroupsAndStudents();
+      if (!currentUser.isInstructor) await loadMyData();
+    }
+
+  } catch (err) {
+    hideLoading();
+    showToast('Error loading data: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+async function loadGroupsAndStudents() {
+  const [gItems, sItems] = await Promise.all([
+    graphGetAll(listPath('groups', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`)),
+    graphGetAll(listPath('students', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`))
+  ]);
+  appState.groups = gItems.map(i => ({ id: i.id, ...i.fields }));
+  appState.students = sItems.map(i => ({ id: i.id, ...i.fields }));
+  renderDashboard();
+}
+
+async function loadMyData() {
+  const email = currentUser.email;
+  const sItems = await graphGetAll(listPath('students', `?$expand=fields&$filter=fields/Email eq '${email}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+  if (sItems.length === 0) {
+    appState.myStudent = null;
+    return;
+  }
+  appState.myStudent = { id: sItems[0].id, ...sItems[0].fields };
+
+  // Load peers (same group, not self)
+  const groupId = appState.myStudent.GroupId;
+  appState.myPeers = appState.students.filter(s =>
+    s.GroupId === groupId && s.Email !== email
+  );
+
+  // Load my submitted reviews
+  const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/ReviewerEmail eq '${email}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+  appState.myReviews = rItems.map(i => ({ id: i.id, ...i.fields }));
+}
+
+// =====================================================
+// NAV
+// =====================================================
+function nav(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const pages = ['dashboard','groups','marking','moderation','results'];
+  const tabs = document.querySelectorAll('.nav-tab');
+  const idx = pages.indexOf(page);
+  if (idx >= 0) tabs[idx].classList.add('active');
+
+  const renders = {
+    dashboard: renderDashboard,
+    groups: renderGroups,
+    marking: renderMarking,
+    moderation: renderModeration,
+    results: renderResults
+  };
+  if (renders[page]) renders[page]();
+}
+
+// =====================================================
+// TOAST / LOADING
+// =====================================================
+function showToast(msg, type = 'success') {
+  const icons = { success: '✓', error: '✕', info: 'ℹ', warn: '⚠' };
+  document.getElementById('toast-msg').textContent = msg;
+  document.getElementById('toast-icon').textContent = icons[type] || '✓';
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function setLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading-screen').style.display = 'flex';
+}
+
+function hideLoading() {
+  document.getElementById('loading-screen').style.display = 'none';
+}
+
+function openModal(id) { document.getElementById(id).classList.add('show') }
+function closeModal(id) { document.getElementById(id).classList.remove('show') }
+
+// =====================================================
+// DASHBOARD
+// =====================================================
+function renderDashboard() {
+  const a = appState.assignment;
+  const isInstructor = currentUser.isInstructor;
+
+  if (!a) {
+    document.getElementById('dash-sub').textContent = 'No assignments yet';
+    document.getElementById('dash-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:3rem">
+        <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.3">📋</div>
+        <h2 style="margin-bottom:0.5rem">No assignments yet</h2>
+        <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1.5rem">Create your first peer marking assignment to get started.</p>
+        ${isInstructor ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  document.getElementById('dash-sub').textContent = a.ModuleCode + ' · ' + (a.AcademicYear || '');
+
+  const students = appState.students;
+  const failed = students.filter(s => s.Failed);
+  const completed = students.filter(s => s.CompletedAllReviews);
+  let totalReviews = 0, doneReviews = 0;
+  appState.groups.forEach(g => {
+    const n = students.filter(s => s.GroupId === g.id).length;
+    totalReviews += n * (n - 1);
+    doneReviews += students.filter(s => s.GroupId === g.id && s.CompletedAllReviews).length * (n - 1);
+  });
+  const pct = totalReviews ? Math.round(doneReviews / totalReviews * 100) : 0;
+
+  if (isInstructor) {
+    document.getElementById('dash-content').innerHTML = `
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Groups</div><div class="stat-val">${appState.groups.length}</div><div class="stat-note">Imported</div></div>
+        <div class="stat"><div class="stat-label">Students</div><div class="stat-val">${students.length}</div></div>
+        <div class="stat"><div class="stat-label">Reviews in</div><div class="stat-val">${doneReviews}</div><div class="stat-note">of ${totalReviews}</div></div>
+        <div class="stat"><div class="stat-label">Complete</div><div class="stat-val">${pct}<span style="font-size:1.1rem">%</span></div></div>
+      </div>
+      <div class="card">
+        <div class="sec-head">
+          <div>
+            <h2 style="margin-bottom:0.3rem">${a.Title}</h2>
+            <div style="font-size:0.8rem;color:var(--text3);display:flex;gap:1rem;flex-wrap:wrap">
+              <span class="badge badge-blue">${a.ModuleCode}</span>
+              <span>Submissions due ${a.SubmissionDeadline?.split('T')[0] || '—'}</span>
+              <span>Marking due ${a.MarkingDeadline?.split('T')[0] || '—'}</span>
+              <span>${a.Anonymous ? '🔒 Anonymous' : '👁 Named'}</span>
+              <span>${a.Released ? '<span class="badge badge-green">✓ Results released</span>' : '<span class="badge badge-amber">Results not yet released</span>'}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.75rem">
+            ${failed.length ? `<span class="badge badge-red">⚠ ${failed.length} non-submitter${failed.length > 1 ? 's' : ''}</span>` : '<span class="badge badge-green">✓ No issues</span>'}
+            <button class="btn btn-ghost btn-sm" onclick="nav('moderation')">Moderate</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <div style="font-size:0.8rem;color:var(--text2)">Review progress</div>
+          <div class="bar" style="flex:1;max-width:300px"><div class="bar-fill" style="width:${pct}%;background:${pct===100?'var(--green)':pct>60?'var(--amber)':'var(--red)'}"></div></div>
+          <div style="font-size:0.8rem;color:var(--text2)">${doneReviews} / ${totalReviews} (${pct}%)</div>
+        </div>
+      </div>`;
+  } else {
+    // Student dashboard
+    const ms = appState.myStudent;
+    if (!ms) {
+      document.getElementById('dash-content').innerHTML = `<div class="card"><p style="color:var(--text2)">You are not enrolled in this assignment. Please contact your module coordinator.</p></div>`;
+      return;
+    }
+    const peers = appState.myPeers;
+    const reviewed = appState.myReviews.map(r => r.RevieweeStudentId);
+    const remaining = peers.filter(p => !reviewed.includes(p.StudentId)).length;
+    const allDone = remaining === 0;
+
+    document.getElementById('dash-content').innerHTML = `
+      <div class="card" style="border-color:${allDone ? 'rgba(62,207,142,0.3)' : 'rgba(245,166,35,0.25)'}">
+        <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
+          <div>
+            <h2 style="margin-bottom:0.3rem">${a.Title}</h2>
+            <div style="font-size:0.82rem;color:var(--text3)">Marking deadline: <strong style="color:var(--text)">${a.MarkingDeadline?.split('T')[0] || '—'}</strong></div>
+          </div>
+          <span class="badge ${allDone ? 'badge-green' : 'badge-amber'}">${allDone ? '✓ All reviews done' : remaining + ' review' + (remaining !== 1 ? 's' : '') + ' remaining'}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+          <div class="bar" style="flex:1;max-width:260px"><div class="bar-fill" style="width:${peers.length ? (peers.length - remaining) / peers.length * 100 : 0}%;background:${allDone ? 'var(--green)' : 'var(--accent)'}"></div></div>
+          <div style="font-size:0.82rem;color:var(--text2)">${peers.length - remaining} / ${peers.length} peers reviewed</div>
+          ${!allDone ? `<button class="btn btn-primary btn-sm" onclick="nav('marking')">Continue marking →</button>` : `<button class="btn btn-ghost btn-sm" onclick="nav('results')">View results →</button>`}
+        </div>
+        ${!allDone && ms.Failed ? '' : !allDone ? `
+        <div style="margin-top:0.85rem;padding:0.75rem 1rem;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.2);border-radius:6px;font-size:0.82rem;color:var(--amber)">
+          ⚠ <strong>Important:</strong> If you do not complete all reviews before the deadline, your mark will be <strong>zero</strong>.
+        </div>` : ''}
+      </div>`;
+  }
+}
+
+// =====================================================
+// GROUPS — IMPORT CSV
+// =====================================================
+function renderGroups() {
+  if (!currentUser.isInstructor) {
+    document.getElementById('groups-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Groups management is instructor-only.</div></div>`;
+    return;
+  }
+
+  if (appState.groups.length === 0) return; // show upload zone (already in HTML)
+
+  const groupsHtml = appState.groups.map(g => {
+    const members = appState.students.filter(s => s.GroupId === g.id);
+    const done = members.filter(s => s.CompletedAllReviews).length;
+    const fail = members.filter(s => s.Failed).length;
+    const n = members.length;
+    const pct = n > 1 ? Math.round(done * (n - 1) / (n * (n - 1)) * 100) : 0;
+    return `<div class="card" style="margin-bottom:0.75rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+        <div style="font-weight:600">${g.Title} <span style="font-size:0.8rem;font-weight:400;color:var(--text3)">${n} students</span></div>
+        ${fail ? `<span class="badge badge-red">⚠ ${fail} non-submitter${fail > 1 ? 's' : ''}</span>` : '<span class="badge badge-green">✓ All complete</span>'}
+      </div>
+      <div style="margin-bottom:0.75rem">${members.map(s => `<span class="member-chip ${s.Failed ? 'failed' : s.CompletedAllReviews ? 'done' : ''}">${s.Title}${s.Failed ? ' 🔒' : s.CompletedAllReviews ? ' ✓' : ''}</span>`).join('')}</div>
+      <div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${pct === 100 ? 'var(--green)' : 'var(--amber)'}"></div></div><div class="bar-num">${done}/${n} reviewed</div></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('groups-content').innerHTML = groupsHtml;
+}
+
+function downloadSampleCSV() {
+  const csv = `student_id,name,email,group\nS01,Alice Tran,a.tran@nottingham.ac.uk,Group 1\nS02,Bolu Adeyemi,b.adeyemi@nottingham.ac.uk,Group 1\nS03,Chen Wei,c.wei@nottingham.ac.uk,Group 1\nS04,Diana Kovacs,d.kovacs@nottingham.ac.uk,Group 1\n`;
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'peermark_sample.csv';
+  a.click();
+}
+
+async function importCSV(e) {
+  const file = e.target.files[0];
+  if (!file || !appState.assignment) return;
+  const text = await file.text();
+  const lines = text.trim().split('\n');
+  const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+  const idIdx    = headers.indexOf('student_id');
+  const nameIdx  = headers.indexOf('name');
+  const emailIdx = headers.indexOf('email');
+  const groupIdx = headers.indexOf('group');
+
+  if ([idIdx, nameIdx, emailIdx, groupIdx].includes(-1)) {
+    showToast('CSV must have columns: student_id, name, email, group', 'error');
+    return;
+  }
+
+  showToast('Importing…', 'info');
+  setLoading('Importing groups and students…');
+
+  try {
+    // Parse rows
+    const rows = lines.slice(1).map(l => {
+      const cols = l.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      return { studentId: cols[idIdx], name: cols[nameIdx], email: cols[emailIdx].toLowerCase(), group: cols[groupIdx] };
+    }).filter(r => r.studentId && r.name && r.email && r.group);
+
+    // Unique groups
+    const groupNames = [...new Set(rows.map(r => r.group))];
+
+    // Create group rows
+    const groupMap = {}; // name → sharepoint item id
+    for (const gName of groupNames) {
+      const res = await graph('POST', listPath('groups'), {
+        fields: { Title: gName, AssignmentId: appState.assignment.id }
+      });
+      groupMap[gName] = res.id;
+    }
+
+    // Create student rows
+    const groupSizes = {};
+    rows.forEach(r => { groupSizes[r.group] = (groupSizes[r.group] || 0) + 1; });
+
+    for (const row of rows) {
+      await graph('POST', listPath('students'), {
+        fields: {
+          Title:               row.name,
+          StudentId:           row.studentId,
+          Email:               row.email,
+          GroupId:             groupMap[row.group],
+          AssignmentId:        appState.assignment.id,
+          ReviewsRequired:     groupSizes[row.group] - 1,
+          ReviewsSubmitted:    0,
+          CompletedAllReviews: false,
+          Failed:              false
+        }
+      });
+    }
+
+    await loadGroupsAndStudents();
+    if (!currentUser.isInstructor) await loadMyData();
+    hideLoading();
+    showToast(`✓ Imported ${rows.length} students across ${groupNames.length} groups`);
+    renderGroups();
+    renderDashboard();
+
+  } catch (err) {
+    hideLoading();
+    showToast('Import failed: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// =====================================================
+// MARKING
+// =====================================================
+function renderMarking() {
+  if (currentUser.isInstructor) {
+    renderMarkingInstructor();
+  } else {
+    renderMarkingStudent();
+  }
+}
+
+function renderMarkingInstructor() {
+  document.getElementById('marking-title').textContent = 'Marking Overview';
+  document.getElementById('marking-sub').textContent = 'Real-time progress across all groups';
+  document.getElementById('marking-prog-wrap').style.display = 'none';
+
+  if (!appState.assignment) {
+    document.getElementById('marking-content').innerHTML = `<div class="card"><p style="color:var(--text2)">No assignment loaded.</p></div>`;
+    return;
+  }
+
+  const failed = appState.students.filter(s => s.Failed);
+  const groupRows = appState.groups.map(g => {
+    const members = appState.students.filter(s => s.GroupId === g.id);
+    const n = members.length;
+    const done = members.filter(s => s.CompletedAllReviews).length;
+    const fail = members.filter(s => s.Failed).length;
+    const pct = n > 1 ? Math.round(done * (n-1) / (n*(n-1)) * 100) : 0;
+    return `<tr>
+      <td style="font-weight:500">${g.Title}</td>
+      <td>${n}</td>
+      <td>${done}</td>
+      <td>${fail ? `<span class="badge badge-red">${fail}</span>` : '<span class="badge badge-green">0</span>'}</td>
+      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${pct===100?'var(--green)':pct>60?'var(--amber)':'var(--red)'}"></div></div><div class="bar-num">${pct}%</div></div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('marking-content').innerHTML = `
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="sec-head"><h3>Progress by Group</h3></div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>Group</th><th>Students</th><th>Completed</th><th>Non-submitters</th><th>Progress</th></tr></thead>
+        <tbody>${groupRows}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="sec-head"><h3>Non-submitters (will receive zero)</h3><span class="badge badge-red">${failed.length} student${failed.length !== 1 ? 's' : ''}</span></div>
+      ${failed.length === 0
+        ? '<div class="error-state"><div class="error-icon" style="opacity:0.3">✓</div>All students have submitted</div>'
+        : failed.map(s => `<div class="mod-row"><span class="dot dot-red" style="margin-right:0.5rem"></span><div class="mod-name">${s.Title}</div><div class="mod-scores">${s.Email}</div><span class="badge badge-red">Mark: 0</span></div>`).join('')
+      }
+    </div>`;
+}
+
+function renderMarkingStudent() {
+  document.getElementById('marking-title').textContent = 'Peer Marking';
+  document.getElementById('marking-prog-wrap').style.display = 'flex';
+
+  const ms = appState.myStudent;
+  if (!ms) {
+    document.getElementById('marking-content').innerHTML = `<div class="card"><p style="color:var(--text2)">You are not enrolled in this assignment.</p></div>`;
+    return;
+  }
+
+  if (ms.Failed) {
+    document.getElementById('marking-prog-wrap').style.display = 'none';
+    document.getElementById('marking-sub').textContent = 'Marking deadline has passed';
+    document.getElementById('marking-content').innerHTML = `
+      <div class="lockout-banner">
+        <div class="lockout-icon">🔒</div>
+        <div class="lockout-title">Results Unavailable</div>
+        <div class="lockout-text">You did not complete all required peer reviews before the deadline. Your mark for this assignment is <strong style="color:var(--red)">zero (0)</strong>. Please contact your module coordinator if you believe this is an error.</div>
+      </div>`;
+    return;
+  }
+
+  const peers = appState.myPeers;
+  const reviewed = appState.myReviews.map(r => r.RevieweeStudentId);
+  const remaining = peers.filter(p => !reviewed.includes(p.StudentId));
+  const doneCount = peers.length - remaining.length;
+  const allDone = remaining.length === 0;
+
+  document.getElementById('marking-prog-bar').style.width = (peers.length ? doneCount / peers.length * 100 : 0) + '%';
+  document.getElementById('marking-prog-txt').textContent = doneCount + '/' + peers.length;
+  document.getElementById('marking-sub').textContent = remaining.length + ' review' + (remaining.length !== 1 ? 's' : '') + ' remaining';
+
+  if (allDone) {
+    document.getElementById('marking-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:2.5rem;border-color:rgba(62,207,142,0.3)">
+        <div style="font-size:2.5rem;margin-bottom:0.75rem">✅</div>
+        <h2 style="color:var(--green);margin-bottom:0.5rem">All reviews submitted!</h2>
+        <p style="color:var(--text2);font-size:0.9rem">Your results will be available once your instructor releases them.</p>
+      </div>`;
+    return;
+  }
+
+  const scale = parseInt(appState.assignment?.MaxScore || 20);
+  const defaultVal = Math.floor(scale * 0.6);
+
+  const cards = peers.map(peer => {
+    const isDone = reviewed.includes(peer.StudentId);
+    const displayName = appState.assignment?.Anonymous ? `Peer (${peer.StudentId})` : peer.Title;
+    if (isDone) {
+      return `<div class="mark-peer-card" style="border-color:rgba(62,207,142,0.25)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:600">${displayName}</div>
+          <span class="badge badge-green">✓ Review submitted</span>
+        </div>
+      </div>`;
+    }
+    return `<div class="mark-peer-card" id="card-${peer.StudentId}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+        <div style="font-weight:600">${displayName}</div>
+        <span class="badge badge-amber">Pending</span>
+      </div>
+      ${appState.criteria.map((c, i) => `
+        <div class="slider-row">
+          <div style="flex:1">
+            <div style="font-weight:500;font-size:0.9rem">${c.Title}</div>
+            <div style="font-size:0.75rem;color:var(--text3)">${c.Description || ''} · ${c.WeightPercent}% weight</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.75rem;width:240px">
+            <input type="range" min="0" max="${scale}" value="${defaultVal}" id="sl-${peer.StudentId}-${i}"
+              oninput="document.getElementById('sv-${peer.StudentId}-${i}').textContent=this.value+'/${scale}'">
+            <div class="slider-val" id="sv-${peer.StudentId}-${i}">${defaultVal}/${scale}</div>
+          </div>
+        </div>`).join('')}
+      <hr>
+      <div class="grid2" style="margin-bottom:0.85rem">
+        <div class="frow"><label>Strengths</label><textarea id="str-${peer.StudentId}" placeholder="What did this submission do well?" rows="3"></textarea></div>
+        <div class="frow"><label>Areas to improve</label><textarea id="imp-${peer.StudentId}" placeholder="What could be improved?" rows="3"></textarea></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" id="submit-btn-${peer.StudentId}" onclick="submitReview('${peer.StudentId}')">Submit review →</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('marking-content').innerHTML = cards;
+}
+
+async function submitReview(revieweeStudentId) {
+  const btn = document.getElementById('submit-btn-' + revieweeStudentId);
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  try {
+    const reviewee = appState.myPeers.find(p => p.StudentId === revieweeStudentId);
+    const scale = parseInt(appState.assignment?.MaxScore || 20);
+    const scores = appState.criteria.map((c, i) =>
+      parseInt(document.getElementById(`sl-${revieweeStudentId}-${i}`)?.value || 0)
+    );
+    const weightedScore = appState.criteria.reduce((sum, c, i) =>
+      sum + (scores[i] * c.WeightPercent / 100), 0
+    );
+
+    // Write review to SharePoint
+    await graph('POST', listPath('reviews'), {
+      fields: {
+        Title:               `${appState.myStudent.StudentId}→${revieweeStudentId}-${appState.assignment.id}`,
+        AssignmentId:        appState.assignment.id,
+        ReviewerStudentId:   appState.myStudent.StudentId,
+        ReviewerEmail:       currentUser.email,
+        RevieweeStudentId:   revieweeStudentId,
+        ScoresJSON:          JSON.stringify(scores),
+        WeightedScore:       Math.round(weightedScore * 10) / 10,
+        FeedbackStrengths:   document.getElementById(`str-${revieweeStudentId}`)?.value || '',
+        FeedbackImprove:     document.getElementById(`imp-${revieweeStudentId}`)?.value || '',
+        SubmittedAt:         new Date().toISOString(),
+        ValidForAggregation: true
+      }
+    });
+
+    // Increment ReviewsSubmitted on student record
+    const newCount = (appState.myStudent.ReviewsSubmitted || 0) + 1;
+    const allDone = newCount >= appState.myStudent.ReviewsRequired;
+    await graph('PATCH', listPath('students', '/' + appState.myStudent.id), {
+      fields: { ReviewsSubmitted: newCount, CompletedAllReviews: allDone }
+    });
+
+    // Update local state
+    appState.myStudent.ReviewsSubmitted = newCount;
+    appState.myStudent.CompletedAllReviews = allDone;
+    appState.myReviews.push({ RevieweeStudentId: revieweeStudentId });
+
+    showToast('✓ Review submitted');
+    renderMarkingStudent();
+
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = 'Submit review →';
+    showToast('Failed to submit: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// =====================================================
+// MODERATION
+// =====================================================
+async function renderModeration() {
+  if (!currentUser.isInstructor) {
+    document.getElementById('moderation-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Moderation is instructor-only.</div></div>`;
+    return;
+  }
+
+  document.getElementById('moderation-content').innerHTML = `<div class="error-state"><div class="spinner" style="margin:0 auto"></div></div>`;
+
+  try {
+    // Load all reviews for this assignment
+    const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+    appState.reviews = rItems.map(i => ({ id: i.id, ...i.fields }));
+
+    // Load existing results if any
+    const resItems = await graphGetAll(listPath('results', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+    appState.results = resItems.map(i => ({ id: i.id, ...i.fields }));
+
+    const html = appState.groups.map(g => {
+      const members = appState.students.filter(s => s.GroupId === g.id);
+      const fail = members.filter(s => s.Failed).length;
+
+      const rows = members.map(s => {
+        const validReviews = appState.reviews.filter(r =>
+          r.RevieweeStudentId === s.StudentId && r.ValidForAggregation
+        );
+        const scores = validReviews.map(r => r.WeightedScore);
+        const avg = s.Failed || scores.length === 0 ? 0
+          : Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10;
+        const existingResult = appState.results.find(r => r.StudentId === s.StudentId);
+        const override = existingResult?.InstructorOverride ?? '';
+
+        return `<div class="mod-row">
+          <span class="dot ${s.Failed ? 'dot-red' : override !== '' ? 'dot-amber' : 'dot-green'}" style="margin-right:0.5rem;flex-shrink:0"></span>
+          <div class="mod-name">${s.Title} <span style="font-size:0.72rem;color:var(--text3)">(${s.StudentId})</span></div>
+          <div class="mod-scores">${s.Failed ? '<span style="color:var(--red)">Did not complete — scores discarded</span>' : `Peer scores: ${scores.map(x => x.toFixed(1)).join(', ') || '—'}`}</div>
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:500;min-width:50px;text-align:right;color:${s.Failed ? 'var(--red)' : 'var(--green)'}">${s.Failed ? '0.0' : avg}</div>
+            ${!s.Failed ? `
+              <div style="display:flex;align-items:center;gap:0.4rem">
+                <label style="margin:0;font-size:0.72rem;white-space:nowrap">Override:</label>
+                <input type="number" min="0" max="${appState.assignment?.MaxScore || 20}"
+                  value="${override}" placeholder="—"
+                  id="ov-${s.StudentId}"
+                  style="width:70px;padding:0.3rem 0.5rem;font-size:0.82rem;font-family:'JetBrains Mono',monospace;border-color:${override !== '' ? 'var(--amber)' : 'var(--border)'}">
+              </div>` : '<span class="badge badge-red">Zero</span>'}
+            <button class="btn btn-ghost btn-xs" onclick="showStudentDetail('${s.StudentId}')">Detail</button>
+          </div>
+        </div>`;
+      }).join('');
+
+      return `<div class="card" style="margin-bottom:1.25rem">
+        <div class="sec-head">
+          <h2>${g.Title} <span style="font-size:0.85rem;font-weight:400;color:var(--text3)">${members.length} students</span></h2>
+          ${fail ? `<span class="badge badge-red">⚠ ${fail} non-submitter${fail > 1 ? 's' : ''}</span>` : '<span class="badge badge-green">✓ All complete</span>'}
+        </div>
+        ${rows}
+      </div>`;
+    }).join('');
+
+    document.getElementById('moderation-content').innerHTML = html ||
+      `<div class="card"><p style="color:var(--text2)">No groups loaded. Import students first.</p></div>`;
+
+  } catch (err) {
+    document.getElementById('moderation-content').innerHTML = `<div class="card"><p style="color:var(--red)">Error: ${err.message}</p></div>`;
+    console.error(err);
+  }
+}
+
+async function releaseResults() {
+  if (!appState.assignment) return;
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Calculating…';
+
+  try {
+    // For each student, calculate final mark and write/update Results list
+    for (const s of appState.students) {
+      const validReviews = appState.reviews.filter(r =>
+        r.RevieweeStudentId === s.StudentId && r.ValidForAggregation
+      );
+      const scores = validReviews.map(r => r.WeightedScore);
+      const peerAvg = s.Failed || scores.length === 0 ? 0
+        : Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10;
+
+      const overrideInput = document.getElementById('ov-' + s.StudentId);
+      const override = overrideInput && overrideInput.value !== '' ? parseFloat(overrideInput.value) : null;
+      const finalMark = override !== null ? override : peerAvg;
+
+      const existing = appState.results.find(r => r.StudentId === s.StudentId);
+      const payload = {
+        fields: {
+          Title:              `${s.StudentId}-${appState.assignment.id}`,
+          StudentId:          s.StudentId,
+          AssignmentId:       appState.assignment.id,
+          PeerAverage:        peerAvg,
+          InstructorOverride: override,
+          FinalMark:          finalMark,
+          Failed:             s.Failed || false
+        }
+      };
+
+      if (existing) {
+        await graph('PATCH', listPath('results', '/' + existing.id), payload);
+      } else {
+        await graph('POST', listPath('results'), payload);
+      }
+
+      // If student failed, mark all their submitted reviews as invalid
+      if (s.Failed) {
+        const theirReviews = appState.reviews.filter(r => r.ReviewerStudentId === s.StudentId);
+        for (const r of theirReviews) {
+          await graph('PATCH', listPath('reviews', '/' + r.id), {
+            fields: { ValidForAggregation: false }
+          });
+        }
+      }
+    }
+
+    // Set Released = true on assignment
+    await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
+      fields: { Released: true }
+    });
+    appState.assignment.Released = true;
+
+    showToast('✓ Results released — students can now see their marks');
+    btn.disabled = false;
+    btn.textContent = 'Release Results to Students';
+    renderDashboard();
+
+  } catch (err) {
+    showToast('Error releasing results: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Release Results to Students';
+    console.error(err);
+  }
+}
+
+function showStudentDetail(studentId) {
+  const s = appState.students.find(x => x.StudentId === studentId);
+  if (!s) return;
+  document.getElementById('detail-name').textContent = s.Title;
+
+  const validReviews = appState.reviews.filter(r =>
+    r.RevieweeStudentId === studentId && r.ValidForAggregation
+  );
+
+  if (s.Failed) {
+    document.getElementById('detail-body').innerHTML = `
+      <div class="lockout-banner" style="padding:1.5rem;text-align:left">
+        <p style="color:var(--red);font-weight:600;margin-bottom:0.5rem">⚠ Did not complete all peer reviews</p>
+        <p style="color:var(--text2);font-size:0.88rem">All marks submitted by this student have been discarded. Final mark: <strong>0</strong>.</p>
+      </div>`;
+  } else {
+    const avg = validReviews.length
+      ? Math.round(validReviews.reduce((a, r) => a + r.WeightedScore, 0) / validReviews.length * 10) / 10
+      : 0;
+
+    const feedbackHtml = validReviews.map((r, idx) => {
+      const scores = JSON.parse(r.ScoresJSON || '[]');
+      return `<div class="card" style="padding:1rem;margin-bottom:0.75rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
+          <div style="font-weight:500">Peer ${idx + 1}</div>
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.WeightedScore?.toFixed(1)} / ${appState.assignment?.MaxScore || 20}</span>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem">${appState.criteria.map((c, i) => `${c.Title}: ${scores[i] ?? '—'}`).join(' · ')}</div>
+        ${r.FeedbackStrengths ? `<div class="peer-feedback-item">💪 ${r.FeedbackStrengths}</div>` : ''}
+        ${r.FeedbackImprove ? `<div class="peer-feedback-item">📈 ${r.FeedbackImprove}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    document.getElementById('detail-body').innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:0.75rem;color:var(--text3);margin-bottom:0.2rem">Peer average</div>
+          <div style="font-family:'Fraunces',serif;font-size:2.5rem;color:var(--green);line-height:1">${avg}</div>
+          <div style="font-size:0.78rem;color:var(--text3)">/ ${appState.assignment?.MaxScore || 20} · from ${validReviews.length} peer${validReviews.length !== 1 ? 's' : ''}</div>
+        </div>
+      </div>
+      ${feedbackHtml || '<p style="color:var(--text2)">No valid reviews yet.</p>'}`;
+  }
+  openModal('modal-detail');
+}
+
+// =====================================================
+// RESULTS
+// =====================================================
+async function renderResults() {
+  if (currentUser.isInstructor) {
+    document.getElementById('results-instructor-actions').style.display = 'flex';
+    renderResultsInstructor();
+  } else {
+    document.getElementById('results-instructor-actions').style.display = 'none';
+    await renderResultsStudent();
+  }
+}
+
+function renderResultsInstructor() {
+  const rows = appState.students.map(s => {
+    const result = appState.results.find(r => r.StudentId === s.StudentId);
+    const finalMark = s.Failed ? 0 : (result?.FinalMark ?? '—');
+    const pct = typeof finalMark === 'number' ? finalMark / (appState.assignment?.MaxScore || 20) * 100 : 0;
+    const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    return `<tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text3)">${s.StudentId}</td>
+      <td style="font-weight:500">${s.Title}</td>
+      <td>${appState.groups.find(g => g.id === s.GroupId)?.Title || '—'}</td>
+      <td>${s.Failed ? '<span class="badge badge-red">Non-submitter</span>' : '<span class="badge badge-green">Complete</span>'}</td>
+      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${finalMark}</div></div></td>
+      <td>${result?.InstructorOverride != null ? `<span class="badge badge-amber">Override: ${result.InstructorOverride}</span>` : '—'}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="showStudentDetail('${s.StudentId}')">Detail</button></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('results-content').innerHTML = `
+    <div class="card">
+      <div class="sec-head">
+        <h2>All Results</h2>
+        ${appState.assignment?.Released ? '<span class="badge badge-green">✓ Released to students</span>' : '<span class="badge badge-amber">Not yet released</span>'}
+      </div>
+      <div style="overflow-x:auto"><table>
+        <thead><tr><th>ID</th><th>Name</th><th>Group</th><th>Status</th><th>Final Mark</th><th>Override</th><th></th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:var(--text3)">No results yet — release results from Moderation first</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+}
+
+async function renderResultsStudent() {
+  const ms = appState.myStudent;
+  if (!ms) {
+    document.getElementById('results-content').innerHTML = `<div class="card"><p style="color:var(--text2)">You are not enrolled in this assignment.</p></div>`;
+    return;
+  }
+
+  if (ms.Failed) {
+    document.getElementById('results-content').innerHTML = `
+      <div class="lockout-banner">
+        <div class="lockout-icon">🔒</div>
+        <div class="lockout-title">Results Unavailable</div>
+        <div class="lockout-text">You did not complete all required peer reviews. Your mark for this assignment is <strong style="color:var(--red)">zero (0)</strong>.</div>
+      </div>`;
+    return;
+  }
+
+  if (!appState.assignment?.Released) {
+    document.getElementById('results-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:3rem">
+        <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.4">⏳</div>
+        <h2 style="margin-bottom:0.5rem">Results not yet released</h2>
+        <p style="color:var(--text2);font-size:0.88rem">Your instructor is moderating the marks. Check back soon.</p>
+      </div>`;
+    return;
+  }
+
+  document.getElementById('results-content').innerHTML = `<div class="error-state"><div class="spinner" style="margin:0 auto"></div></div>`;
+
+  try {
+    // Load this student's result
+    const resItems = await graphGetAll(listPath('results', `?$expand=fields&$filter=fields/StudentId eq '${ms.StudentId}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+    if (resItems.length === 0) {
+      document.getElementById('results-content').innerHTML = `<div class="card"><p style="color:var(--text2)">Your result is not available yet.</p></div>`;
+      return;
+    }
+    const result = resItems[0].fields;
+
+    // Load reviews received (only after release — ValidForAggregation ones)
+    const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/RevieweeStudentId eq '${ms.StudentId}' and fields/AssignmentId eq '${appState.assignment.id}' and fields/ValidForAggregation eq true`));
+    const myReceivedReviews = rItems.map(i => i.fields);
+
+    const scale = appState.assignment?.MaxScore || 20;
+    const finalMark = result.FinalMark;
+    const pct = Math.round(finalMark / scale * 100);
+
+    const feedbackHtml = myReceivedReviews.map((r, idx) => {
+      const scores = JSON.parse(r.ScoresJSON || '[]');
+      const criteriaHtml = appState.criteria.map((c, i) => `
+        <div style="margin-bottom:0.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.25rem">
+            <span style="color:var(--text2)">${c.Title}</span>
+            <span style="font-family:'JetBrains Mono',monospace">${scores[i] ?? '—'}/${scale}</span>
+          </div>
+          <div class="bar"><div class="bar-fill" style="width:${scores[i] ? scores[i]/scale*100 : 0}%;background:var(--accent)"></div></div>
+        </div>`).join('');
+      return `<div class="card" style="margin-bottom:0.75rem;padding:1.2rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <div style="font-weight:600">Peer Review ${idx + 1}</div>
+          <div style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--accent)">${r.WeightedScore?.toFixed(1)}<span style="font-size:0.85rem;color:var(--text3)">/${scale}</span></div>
+        </div>
+        ${criteriaHtml}
+        ${r.FeedbackStrengths ? `<div class="peer-feedback-item">💪 <strong>Strength:</strong> ${r.FeedbackStrengths}</div>` : ''}
+        ${r.FeedbackImprove ? `<div class="peer-feedback-item">📈 <strong>To improve:</strong> ${r.FeedbackImprove}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    document.getElementById('results-content').innerHTML = `
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start;margin-bottom:2rem">
+        <div class="card" style="text-align:center;padding:1.75rem 2rem;min-width:180px">
+          <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:0.5rem">Your Final Mark</div>
+          <div class="result-score-big" style="color:${pct>=70?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">${finalMark}</div>
+          <div style="font-size:0.85rem;color:var(--text3);margin-top:0.25rem">/ ${scale}</div>
+          <hr>
+          <div style="font-size:0.78rem;color:var(--text3)">${myReceivedReviews.length} peer review${myReceivedReviews.length !== 1 ? 's' : ''}</div>
+          ${result.InstructorOverride != null ? `<div style="font-size:0.72rem;color:var(--amber);margin-top:0.25rem">⚠ Instructor adjusted</div>` : ''}
+        </div>
+        <div class="card">
+          <h3>Average by criterion</h3>
+          ${appState.criteria.map((c, ci) => {
+            const allScores = myReceivedReviews.map(r => JSON.parse(r.ScoresJSON || '[]')[ci]).filter(x => x !== undefined);
+            const avg = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
+            return `<div style="margin-bottom:0.85rem">
+              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.3rem">
+                <span>${c.Title} <span style="color:var(--text3);font-size:0.75rem">(${c.WeightPercent}%)</span></span>
+                <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${avg.toFixed(1)}/${scale}</span>
+              </div>
+              <div class="bar"><div class="bar-fill" style="width:${avg/scale*100}%;background:var(--accent)"></div></div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <h3 style="margin-bottom:1rem">Individual Peer Reviews (${myReceivedReviews.length})</h3>
+      ${feedbackHtml || '<div class="card"><p style="color:var(--text2)">No peer feedback available.</p></div>'}`;
+
+  } catch (err) {
+    document.getElementById('results-content').innerHTML = `<div class="card"><p style="color:var(--red)">Error loading results: ${err.message}</p></div>`;
+    console.error(err);
+  }
+}
+
+// =====================================================
+// CRITERIA EDITOR
+// =====================================================
+function openCriteriaModal() {
+  renderCriteriaEditor();
+  openModal('modal-criteria');
+}
+
+function renderCriteriaEditor() {
+  document.getElementById('criteria-editor').innerHTML = appState.criteria.map((c, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+      <div><label>Name</label><input type="text" value="${c.Title || ''}" oninput="appState.criteria[${i}].Title=this.value"></div>
+      <div><label>Description</label><input type="text" value="${c.Description || ''}" oninput="appState.criteria[${i}].Description=this.value"></div>
+      <div style="width:80px"><label>Weight %</label><input type="number" value="${c.WeightPercent || 0}" min="1" max="100" oninput="appState.criteria[${i}].WeightPercent=parseInt(this.value)||0;checkWeights()"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="removeCriterionLocal(${i})">✕</button>
+    </div>`).join('');
+  checkWeights();
+}
+
+function addCriterion() {
+  appState.criteria.push({ Title: 'New Criterion', Description: '', WeightPercent: 0, SortOrder: appState.criteria.length + 1 });
+  renderCriteriaEditor();
+}
+
+function removeCriterionLocal(i) {
+  appState.criteria.splice(i, 1);
+  renderCriteriaEditor();
+}
+
+function checkWeights() {
+  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  const w = document.getElementById('weight-warning');
+  if (total !== 100) { w.style.display = 'block'; w.textContent = `⚠ Weights sum to ${total}% — must be 100%`; }
+  else w.style.display = 'none';
+}
+
+async function saveCriteria() {
+  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  if (total !== 100) { showToast('Weights must sum to 100%', 'error'); return; }
+  if (!appState.assignment) { showToast('Create an assignment first', 'error'); return; }
+
+  closeModal('modal-criteria');
+  showToast('Saving criteria…', 'info');
+
+  try {
+    // Delete existing criteria for this assignment then re-create
+    for (const c of appState.criteria.filter(c => c.id)) {
+      await graph('DELETE', listPath('criteria', '/' + c.id));
+    }
+    for (let i = 0; i < appState.criteria.length; i++) {
+      const c = appState.criteria[i];
+      await graph('POST', listPath('criteria'), {
+        fields: {
+          Title:        c.Title,
+          Description:  c.Description || '',
+          WeightPercent: c.WeightPercent,
+          SortOrder:    i + 1,
+          AssignmentId: appState.assignment.id
+        }
+      });
+    }
+    showToast('✓ Criteria saved to SharePoint');
+  } catch (err) {
+    showToast('Error saving criteria: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// =====================================================
+// CREATE ASSIGNMENT
+// =====================================================
+async function createAssignment() {
+  const title = document.getElementById('m-title').value.trim();
+  if (!title) { showToast('Please enter a title', 'error'); return; }
+
+  const btn = document.getElementById('btn-create-assignment');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+
+  try {
+    const res = await graph('POST', listPath('assignments'), {
+      fields: {
+        Title:              title,
+        ModuleCode:         document.getElementById('m-mod').value.trim(),
+        AcademicYear:       document.getElementById('m-year').value.trim(),
+        SubmissionDeadline: document.getElementById('m-sub').value,
+        MarkingDeadline:    document.getElementById('m-mark').value,
+        MaxScore:           parseInt(document.getElementById('m-scale').value),
+        Anonymous:          document.getElementById('m-anon').value === '1',
+        Released:           false,
+        CreatedByEmail:     currentUser.email
+      }
+    });
+
+    appState.assignment = { id: res.id, ...res.fields };
+    closeModal('modal-new');
+    showToast('✓ Assignment created in SharePoint');
+    btn.disabled = false;
+    btn.textContent = 'Create →';
+    renderDashboard();
+
+  } catch (err) {
+    showToast('Error: ' + err.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Create →';
+    console.error(err);
+  }
+}
+
+// =====================================================
+// EXPORT CSV
+// =====================================================
+function exportCSV() {
+  let csv = 'student_id,name,group,peer_average,override,final_mark,failed\n';
+  appState.students.forEach(s => {
+    const result = appState.results.find(r => r.StudentId === s.StudentId);
+    const group = appState.groups.find(g => g.id === s.GroupId)?.Title || '';
+    csv += `${s.StudentId},"${s.Title}","${group}",${result?.PeerAverage ?? ''},${result?.InstructorOverride ?? ''},${result?.FinalMark ?? ''},${s.Failed ? 'yes' : 'no'}\n`;
+  });
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = `peermark_results_${appState.assignment?.ModuleCode || 'export'}.csv`;
+  a.click();
+  showToast('CSV exported', 'info');
+}
+
+// =====================================================
+// BOOT
+// =====================================================
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
