@@ -524,14 +524,14 @@ async function loadApp() {
   setLoading("Loading assignment…");
   try {
     // Load the most recent assignment
-    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/Created desc&$top=1'));
+    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$top=10'));
     if (items.length > 0) {
       appState.assignment = { id: items[0].id, ...items[0].fields };
     }
 
     // Load criteria
     if (appState.assignment) {
-      const cItems = await graphGetAll(listPath('criteria', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'&$orderby=fields/SortOrder`));
+      const cItems = await graphGetAll(listPath('criteria', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
       appState.criteria = cItems.map(i => ({ id: i.id, ...i.fields }));
     }
 
