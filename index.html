@@ -280,6 +280,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="nav-tab" onclick="nav('marking')">Marking</div>
     <div class="nav-tab hidden" onclick="nav('moderation')" id="tab-moderation">Moderation</div>
     <div class="nav-tab hidden" onclick="nav('results')" id="tab-results">Results</div>
+    <div class="nav-tab" onclick="nav('help')">Help</div>
   </div>
   <div class="nav-right">
     <div class="user-chip">
@@ -359,6 +360,174 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
   </div>
   <div id="results-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+
+<!-- HELP -->
+<div class="page" id="page-help">
+  <div class="page-head">
+    <div><h1>Help &amp; Guide</h1><p class="sub">How to use PeerMark</p></div>
+  </div>
+
+  <!-- PURPOSE -->
+  <div class="card" style="margin-bottom:1.5rem;border-color:rgba(79,142,247,0.3)">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="font-size:2rem;flex-shrink:0">🎓</div>
+      <div>
+        <h2 style="margin-bottom:0.6rem">What is PeerMark?</h2>
+        <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">PeerMark is a peer assessment tool for university modules. It allows students to mark each other's work within assigned groups, submit written feedback, and receive a collated mark from their peers.</p>
+        <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">Students are organised into groups. Every student marks every other student in their group — if a group has 4 members, each student submits 3 reviews. The final mark is the average of all valid peer scores received.</p>
+        <div style="background:rgba(240,82,82,0.08);border:1px solid rgba(240,82,82,0.2);border-radius:6px;padding:0.85rem 1rem;font-size:0.88rem;color:var(--text2)">
+          ⚠ <strong style="color:var(--red)">Important policy:</strong> If a student does not complete <em>all</em> of their peer reviews before the marking deadline, their own mark is <strong>zero</strong> and their submitted reviews are discarded from their peers' averages. There are no exceptions — partial submissions are treated the same as no submission.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTRUCTOR GUIDE -->
+  <div id="help-instructor-section">
+    <h3 style="margin-bottom:1rem">Instructor Workflow</h3>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">1</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Create an assignment</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">On the Dashboard, click <strong>+ New Assignment</strong>. Enter the title, module code, submission deadline, marking deadline, max score per criterion, and whether marking should be anonymous. This creates a record in SharePoint.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">2</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Set marking criteria</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Click <strong>Edit Criteria</strong> on the Dashboard. Add criteria (e.g. "Critical Thinking", "Academic Writing"), give each a description and a percentage weight. Weights must sum to exactly 100%. Click <strong>Save to SharePoint</strong> when done.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">3</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Import students and groups</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Groups</strong> tab. Export your groups from Moodle as a CSV, or prepare a CSV with four columns: <code style="color:var(--accent)">student_id, name, email, group</code>. Click <strong>Import CSV</strong>. Each unique value in the group column becomes a group. The email must match the student's university Microsoft account.</p>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6;margin-top:0.5rem">Download the <strong>Sample CSV</strong> to see the expected format.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">4</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Share the link with students</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Share the PeerMark URL with your students: <code style="color:var(--accent);word-break:break-all">https://jonathanongithub.github.io/peermark/</code>. Students sign in with their university Microsoft account. They will automatically see the student view and their assigned peers to review.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--amber);color:#1a1200;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">5</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Monitor progress</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">The <strong>Marking</strong> tab shows real-time progress per group and flags any students who have not yet completed their reviews. The <strong>Groups</strong> tab shows individual member status.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--amber);color:#1a1200;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">6</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Moderate marks after the deadline</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Moderation</strong> tab. Students who did not complete all reviews are automatically flagged — their score will be zero and their submitted reviews are excluded from peers' averages. You can apply an <strong>Override</strong> to any student's mark if needed (enter a number in the override box next to their name). Click <strong>Detail</strong> to see all individual peer scores and feedback for any student.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:2rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">7</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Release results</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">When you are satisfied with the marks, click <strong>Release Results to Students</strong> in the Moderation tab. This calculates final marks, writes them to SharePoint, and immediately makes them visible to students on their Results page. You can also export a CSV from the Results tab for uploading to Moodle's gradebook.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDENT GUIDE -->
+  <h3 style="margin-bottom:1rem">Student Workflow</h3>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">1</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Sign in</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Visit the PeerMark link provided by your instructor and sign in with your university Microsoft account. You will automatically see the student view — no separate registration is needed.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">2</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Review your peers</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Marking</strong> tab. You will see one card for each person in your group. For each peer, use the sliders to score them on each criterion, and write brief feedback in the Strengths and Areas to Improve boxes. Click <strong>Submit review</strong> when done. You can complete reviews in any order and across multiple sessions — your progress is saved to SharePoint each time you submit.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">3</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Complete all reviews before the deadline</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">You must submit a review for <em>every</em> member of your group before the marking deadline. The Dashboard shows your progress and the deadline. If you do not complete all reviews in time, your own mark will be <strong style="color:var(--red)">zero</strong> with no exceptions.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:2rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">4</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">View your results</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Once your instructor has released results, go to the <strong>Results</strong> tab. You will see your final mark, a breakdown by criterion, and the individual feedback from each peer reviewer (shown anonymously if the instructor has enabled anonymous marking).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <h3 style="margin-bottom:1rem">Common Questions</h3>
+  <div class="card">
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">I submitted some reviews but not all — will my partial reviews count?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">No. If you do not complete every review in your group, all of your submitted reviews are discarded entirely and your own mark is zero. There is no partial credit for partial submission.</p>
+    </div>
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">Can I change a review after submitting it?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Not currently — once a review is submitted it is written to SharePoint and cannot be edited by the student. Contact your instructor if you need a correction.</p>
+    </div>
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">Will my peers know what score I gave them?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">If the instructor has enabled anonymous marking, peer names are hidden during the marking process and individual reviewers are shown only as "Peer 1", "Peer 2" etc. on the results page. The instructor can always see who submitted what.</p>
+    </div>
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">How is my final mark calculated?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Your final mark is the simple average of the weighted scores given by all valid peer reviewers in your group. Each reviewer scores you on each criterion separately; the scores are combined using the criterion weights set by your instructor. The instructor may adjust individual marks before releasing results.</p>
+    </div>
+    <div>
+      <div style="font-weight:600;margin-bottom:0.35rem">Where is my data stored?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">All data — group assignments, peer scores, and feedback — is stored in SharePoint Lists within the University of Nottingham's Microsoft 365 tenancy. Data does not leave the university's infrastructure. Authentication uses your existing university Microsoft account.</p>
+    </div>
+  </div>
+
 </div>
 
 </div><!-- /wrap -->
@@ -531,7 +700,7 @@ async function loadApp() {
 
     // Load criteria
     if (appState.assignment) {
-      const cItems = await graphGetAll(listPath('criteria', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+      const cItems = (await graphGetAll(listPath('criteria', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
       appState.criteria = cItems.map(i => ({ id: i.id, ...i.fields }));
     }
 
@@ -553,17 +722,17 @@ async function loadApp() {
 
 async function loadGroupsAndStudents() {
   const [gItems, sItems] = await Promise.all([
-    graphGetAll(listPath('groups', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`)),
-    graphGetAll(listPath('students', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`))
+    graphGetAll(listPath('groups', '?$expand=fields')),
+    graphGetAll(listPath('students', '?$expand=fields'))
   ]);
-  appState.groups = gItems.map(i => ({ id: i.id, ...i.fields }));
-  appState.students = sItems.map(i => ({ id: i.id, ...i.fields }));
+  appState.groups = gItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
+  appState.students = sItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
   renderDashboard();
 }
 
 async function loadMyData() {
   const email = currentUser.email;
-  const sItems = await graphGetAll(listPath('students', `?$expand=fields&$filter=fields/Email eq '${email}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+  const sItems = (await graphGetAll(listPath('students', '?$expand=fields'))).filter(i => i.fields.Email?.toLowerCase() == email && i.fields.AssignmentId == appState.assignment.id);
   if (sItems.length === 0) {
     appState.myStudent = null;
     return;
@@ -577,7 +746,7 @@ async function loadMyData() {
   );
 
   // Load my submitted reviews
-  const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/ReviewerEmail eq '${email}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+  const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.ReviewerEmail?.toLowerCase() == email && i.fields.AssignmentId == appState.assignment.id);
   appState.myReviews = rItems.map(i => ({ id: i.id, ...i.fields }));
 }
 
@@ -588,7 +757,7 @@ function nav(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  const pages = ['dashboard','groups','marking','moderation','results'];
+  const pages = ['dashboard','groups','marking','moderation','results','help'];
   const tabs = document.querySelectorAll('.nav-tab');
   const idx = pages.indexOf(page);
   if (idx >= 0) tabs[idx].classList.add('active');
@@ -598,7 +767,8 @@ function nav(page) {
     groups: renderGroups,
     marking: renderMarking,
     moderation: renderModeration,
-    results: renderResults
+    results: renderResults,
+    help: renderHelp
   };
   if (renders[page]) renders[page]();
 }
@@ -1044,11 +1214,11 @@ async function renderModeration() {
 
   try {
     // Load all reviews for this assignment
-    const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+    const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
     appState.reviews = rItems.map(i => ({ id: i.id, ...i.fields }));
 
     // Load existing results if any
-    const resItems = await graphGetAll(listPath('results', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+    const resItems = (await graphGetAll(listPath('results', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
     appState.results = resItems.map(i => ({ id: i.id, ...i.fields }));
 
     const html = appState.groups.map(g => {
@@ -1291,7 +1461,7 @@ async function renderResultsStudent() {
 
   try {
     // Load this student's result
-    const resItems = await graphGetAll(listPath('results', `?$expand=fields&$filter=fields/StudentId eq '${ms.StudentId}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+    const resItems = (await graphGetAll(listPath('results', '?$expand=fields'))).filter(i => i.fields.StudentId == ms.StudentId && i.fields.AssignmentId == appState.assignment.id);
     if (resItems.length === 0) {
       document.getElementById('results-content').innerHTML = `<div class="card"><p style="color:var(--text2)">Your result is not available yet.</p></div>`;
       return;
@@ -1299,7 +1469,7 @@ async function renderResultsStudent() {
     const result = resItems[0].fields;
 
     // Load reviews received (only after release — ValidForAggregation ones)
-    const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/RevieweeStudentId eq '${ms.StudentId}' and fields/AssignmentId eq '${appState.assignment.id}' and fields/ValidForAggregation eq true`));
+    const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.RevieweeStudentId == ms.StudentId && i.fields.AssignmentId == appState.assignment.id && i.fields.ValidForAggregation);
     const myReceivedReviews = rItems.map(i => i.fields);
 
     const scale = appState.assignment?.MaxScore || 20;
@@ -1485,6 +1655,16 @@ function exportCSV() {
   a.download = `peermark_results_${appState.assignment?.ModuleCode || 'export'}.csv`;
   a.click();
   showToast('CSV exported', 'info');
+}
+
+// =====================================================
+// HELP
+// =====================================================
+function renderHelp() {
+  const instructorSection = document.getElementById('help-instructor-section');
+  if (instructorSection) {
+    instructorSection.style.display = currentUser?.isInstructor ? 'block' : 'none';
+  }
 }
 
 // =====================================================
