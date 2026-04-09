@@ -239,7 +239,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="frow"><label>Submission deadline</label><input type="date" id="m-sub"></div>
       <div class="frow"><label>Marking deadline</label><input type="date" id="m-mark"></div>
     </div>
-    <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="10">0–10</option><option value="20" selected>0–20</option><option value="100">0–100</option></select></div>
+    <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="1" selected>1 (Yes/No)</option></select></div>
     <div class="frow"><label>Anonymous peer marking?</label><select id="m-anon"><option value="1">Yes — hide student names</option><option value="0">No — show names</option></select></div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancel</button>
@@ -375,7 +375,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div style="font-size:2rem;flex-shrink:0">🎓</div>
       <div>
         <h2 style="margin-bottom:0.6rem">What is PeerMark?</h2>
-        <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">PeerMark is a peer assessment tool for university modules. It allows students to mark each other's work within assigned groups, submit written feedback, and receive a collated mark from their peers.</p>
+        <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">PeerMark is a peer assessment tool for university modules. It allows students to mark each other's work within assigned groups and receive a collated mark from their peers.</p>
         <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">Students are organised into groups. Every student marks every other student in their group — if a group has 4 members, each student submits 3 reviews. The final mark is the average of all valid peer scores received.</p>
         <div style="background:rgba(240,82,82,0.08);border:1px solid rgba(240,82,82,0.2);border-radius:6px;padding:0.85rem 1rem;font-size:0.88rem;color:var(--text2)">
           ⚠ <strong style="color:var(--red)">Important policy:</strong> If a student does not complete <em>all</em> of their peer reviews before the marking deadline, their own mark is <strong>zero</strong> and their submitted reviews are discarded from their peers' averages. There are no exceptions — partial submissions are treated the same as no submission.
@@ -478,7 +478,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">2</div>
       <div>
         <div style="font-weight:600;margin-bottom:0.4rem">Review your peers</div>
-        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Marking</strong> tab. You will see one card for each person in your group. For each peer, use the sliders to score them on each criterion, and write brief feedback in the Strengths and Areas to Improve boxes. Click <strong>Submit review</strong> when done. You can complete reviews in any order and across multiple sessions — your progress is saved to SharePoint each time you submit.</p>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Marking</strong> tab. You will see one card for each person in your group. For each peer, select Yes or No for each criterion. Click <strong>Submit review</strong> when done. You can complete reviews in any order and across multiple sessions — your progress is saved to SharePoint each time you submit.</p>
       </div>
     </div>
   </div>
@@ -498,7 +498,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">4</div>
       <div>
         <div style="font-weight:600;margin-bottom:0.4rem">View your results</div>
-        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Once your instructor has released results, go to the <strong>Results</strong> tab. You will see your final mark, a breakdown by criterion, and the individual feedback from each peer reviewer (shown anonymously if the instructor has enabled anonymous marking).</p>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Once your instructor has released results, go to the <strong>Results</strong> tab. You will see your final mark, a breakdown by criterion, and the scores from each peer reviewer (shown anonymously if the instructor has enabled anonymous marking).</p>
       </div>
     </div>
   </div>
@@ -552,6 +552,19 @@ const CONFIG = {
   // Instructor emails — add yours and any colleagues here
   instructors: ["jonathan.burley@nottingham.ac.uk"]
 };
+
+const QUESTIONS = [
+  "X attended all team meetings (or had a valid reason not to attend).",
+  "X attended all team meetings well prepared.",
+  "X completed assigned tasks on time.",
+  "X produced work that was of suitable quality.",
+  "X contributed to ideas.",
+  "X communicated well with other team members.",
+  "X was respectful to other team members.",
+  "X was open to ideas from other team members.",
+  "X gave constructive feedback.",
+  "X took on a leadership role."
+];
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const SCOPES = ["https://graph.microsoft.com/Sites.ReadWrite.All"];
@@ -1101,8 +1114,8 @@ function renderMarkingStudent() {
     return;
   }
 
-  const scale = parseInt(appState.assignment?.MaxScore || 20);
-  const defaultVal = Math.floor(scale * 0.6);
+  const scale = 1;
+  const defaultVal = 0;
 
   const cards = peers.map(peer => {
     const isDone = reviewed.includes(peer.StudentId);
@@ -1120,24 +1133,22 @@ function renderMarkingStudent() {
         <div style="font-weight:600">${displayName}</div>
         <span class="badge badge-amber">Pending</span>
       </div>
-      ${appState.criteria.map((c, i) => `
+      ${QUESTIONS.map((q, i) => {
+        const label = q.replace(/^X/, displayName);
+        return `
         <div class="slider-row">
           <div style="flex:1">
-            <div style="font-weight:500;font-size:0.9rem">${c.Title}</div>
-            <div style="font-size:0.75rem;color:var(--text3)">${c.Description || ''} · ${c.WeightPercent}% weight</div>
+            <div style="font-weight:500;font-size:0.9rem">${label}</div>
           </div>
           <div style="display:flex;align-items:center;gap:0.75rem;width:240px">
-            <input type="range" min="0" max="${scale}" value="${defaultVal}" id="sl-${peer.StudentId}-${i}"
-              oninput="document.getElementById('sv-${peer.StudentId}-${i}').textContent=this.value+'/${scale}'">
-            <div class="slider-val" id="sv-${peer.StudentId}-${i}">${defaultVal}/${scale}</div>
+            <input type="checkbox" id="sl-${peer.StudentId}-${i}" ${defaultVal === 1 ? 'checked' : ''}
+              oninput="document.getElementById('sv-${peer.StudentId}-${i}').textContent=this.checked ? 'Yes' : 'No'">
+            <label for="sl-${peer.StudentId}-${i}" style="cursor:pointer;user-select:none;">Yes</label>
+            <div class="slider-val" id="sv-${peer.StudentId}-${i}">${defaultVal === 1 ? 'Yes' : 'No'}</div>
           </div>
-        </div>`).join('')}
-      <hr>
-      <div class="grid2" style="margin-bottom:0.85rem">
-        <div class="frow"><label>Strengths</label><textarea id="str-${peer.StudentId}" placeholder="What did this submission do well?" rows="3"></textarea></div>
-        <div class="frow"><label>Areas to improve</label><textarea id="imp-${peer.StudentId}" placeholder="What could be improved?" rows="3"></textarea></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end">
+        </div>`;
+      }).join('')}
+      <div style="display:flex;justify-content:flex-end;margin-top:1rem">
         <button class="btn btn-primary" id="submit-btn-${peer.StudentId}" onclick="submitReview('${peer.StudentId}')">Submit review →</button>
       </div>
     </div>`;
@@ -1153,13 +1164,12 @@ async function submitReview(revieweeStudentId) {
 
   try {
     const reviewee = appState.myPeers.find(p => p.StudentId === revieweeStudentId);
-    const scale = parseInt(appState.assignment?.MaxScore || 20);
-    const scores = appState.criteria.map((c, i) =>
-      parseInt(document.getElementById(`sl-${revieweeStudentId}-${i}`)?.value || 0)
-    );
-    const weightedScore = appState.criteria.reduce((sum, c, i) =>
-      sum + (scores[i] * c.WeightPercent / 100), 0
-    );
+    const scale = 1;
+    const scores = QUESTIONS.map((_, i) => {
+      const el = document.getElementById(`sl-${revieweeStudentId}-${i}`);
+      return el && el.checked ? 1 : 0;
+    });
+    const weightedScore = (scores.reduce((sum, s) => sum + s, 0) / scores.length / scale) * 100;
 
     // Write review to SharePoint
     await graph('POST', listPath('reviews'), {
@@ -1171,8 +1181,6 @@ async function submitReview(revieweeStudentId) {
         RevieweeStudentId:   revieweeStudentId,
         ScoresJSON:          JSON.stringify(scores),
         WeightedScore:       Math.round(weightedScore * 10) / 10,
-        FeedbackStrengths:   document.getElementById(`str-${revieweeStudentId}`)?.value || '',
-        FeedbackImprove:     document.getElementById(`imp-${revieweeStudentId}`)?.value || '',
         SubmittedAt:         new Date().toISOString(),
         ValidForAggregation: true
       }
@@ -1238,13 +1246,13 @@ async function renderModeration() {
         return `<div class="mod-row">
           <span class="dot ${s.Failed ? 'dot-red' : override !== '' ? 'dot-amber' : 'dot-green'}" style="margin-right:0.5rem;flex-shrink:0"></span>
           <div class="mod-name">${s.Title} <span style="font-size:0.72rem;color:var(--text3)">(${s.StudentId})</span></div>
-          <div class="mod-scores">${s.Failed ? '<span style="color:var(--red)">Did not complete — scores discarded</span>' : `Peer scores: ${scores.map(x => x.toFixed(1)).join(', ') || '—'}`}</div>
+          <div class="mod-scores">${s.Failed ? '<span style="color:var(--red)">Did not complete — scores discarded</span>' : `Peer scores: ${scores.map(x => x.toFixed(1) + '%').join(', ') || '—'}`}</div>
           <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:500;min-width:50px;text-align:right;color:${s.Failed ? 'var(--red)' : 'var(--green)'}">${s.Failed ? '0.0' : avg}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:500;min-width:50px;text-align:right;color:${s.Failed ? 'var(--red)' : 'var(--green)'}">${s.Failed ? '0%' : avg + '%'}</div>
             ${!s.Failed ? `
               <div style="display:flex;align-items:center;gap:0.4rem">
-                <label style="margin:0;font-size:0.72rem;white-space:nowrap">Override:</label>
-                <input type="number" min="0" max="${appState.assignment?.MaxScore || 20}"
+                <label style="margin:0;font-size:0.72rem;white-space:nowrap">Override %:</label>
+                <input type="number" min="0" max="100"
                   value="${override}" placeholder="—"
                   id="ov-${s.StudentId}"
                   style="width:70px;padding:0.3rem 0.5rem;font-size:0.82rem;font-family:'JetBrains Mono',monospace;border-color:${override !== '' ? 'var(--amber)' : 'var(--border)'}">
@@ -1366,11 +1374,9 @@ function showStudentDetail(studentId) {
       return `<div class="card" style="padding:1rem;margin-bottom:0.75rem">
         <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
           <div style="font-weight:500">Peer ${idx + 1}</div>
-          <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.WeightedScore?.toFixed(1)} / ${appState.assignment?.MaxScore || 20}</span>
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.WeightedScore?.toFixed(1)}%</span>
         </div>
-        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem">${appState.criteria.map((c, i) => `${c.Title}: ${scores[i] ?? '—'}`).join(' · ')}</div>
-        ${r.FeedbackStrengths ? `<div class="peer-feedback-item">💪 ${r.FeedbackStrengths}</div>` : ''}
-        ${r.FeedbackImprove ? `<div class="peer-feedback-item">📈 ${r.FeedbackImprove}</div>` : ''}
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem">${QUESTIONS.map((q, i) => `Q${i+1}: ${scores[i] === 1 ? 'Yes' : scores[i] === 0 ? 'No' : '—'}`).join(' · ')}</div>
       </div>`;
     }).join('');
 
@@ -1378,8 +1384,8 @@ function showStudentDetail(studentId) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:0.75rem;color:var(--text3);margin-bottom:0.2rem">Peer average</div>
-          <div style="font-family:'Fraunces',serif;font-size:2.5rem;color:var(--green);line-height:1">${avg}</div>
-          <div style="font-size:0.78rem;color:var(--text3)">/ ${appState.assignment?.MaxScore || 20} · from ${validReviews.length} peer${validReviews.length !== 1 ? 's' : ''}</div>
+          <div style="font-family:'Fraunces',serif;font-size:2.5rem;color:var(--green);line-height:1">${avg}%</div>
+          <div style="font-size:0.78rem;color:var(--text3)">from ${validReviews.length} peer${validReviews.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
       ${feedbackHtml || '<p style="color:var(--text2)">No valid reviews yet.</p>'}`;
@@ -1404,14 +1410,14 @@ function renderResultsInstructor() {
   const rows = appState.students.map(s => {
     const result = appState.results.find(r => r.StudentId === s.StudentId);
     const finalMark = s.Failed ? 0 : (result?.FinalMark ?? '—');
-    const pct = typeof finalMark === 'number' ? finalMark / (appState.assignment?.MaxScore || 20) * 100 : 0;
+    const pct = typeof finalMark === 'number' ? finalMark : 0;
     const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
     return `<tr>
       <td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text3)">${s.StudentId}</td>
       <td style="font-weight:500">${s.Title}</td>
       <td>${appState.groups.find(g => g.id === s.GroupId)?.Title || '—'}</td>
       <td>${s.Failed ? '<span class="badge badge-red">Non-submitter</span>' : '<span class="badge badge-green">Complete</span>'}</td>
-      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${finalMark}</div></div></td>
+      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${typeof finalMark === 'number' ? finalMark + '%' : finalMark}</div></div></td>
       <td>${result?.InstructorOverride != null ? `<span class="badge badge-amber">Override: ${result.InstructorOverride}</span>` : '—'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="showStudentDetail('${s.StudentId}')">Detail</button></td>
     </tr>`;
@@ -1472,56 +1478,38 @@ async function renderResultsStudent() {
     const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.RevieweeStudentId == ms.StudentId && i.fields.AssignmentId == appState.assignment.id && i.fields.ValidForAggregation);
     const myReceivedReviews = rItems.map(i => i.fields);
 
-    const scale = appState.assignment?.MaxScore || 20;
+    const scale = 1;
     const finalMark = result.FinalMark;
-    const pct = Math.round(finalMark / scale * 100);
+    const pct = Math.round(finalMark);
 
     const feedbackHtml = myReceivedReviews.map((r, idx) => {
       const scores = JSON.parse(r.ScoresJSON || '[]');
-      const criteriaHtml = appState.criteria.map((c, i) => `
+      const criteriaHtml = QUESTIONS.map((q, i) => `
         <div style="margin-bottom:0.5rem">
           <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.25rem">
-            <span style="color:var(--text2)">${c.Title}</span>
-            <span style="font-family:'JetBrains Mono',monospace">${scores[i] ?? '—'}/${scale}</span>
+            <span style="color:var(--text2)">${q.replace(/^X/, 'You')}</span>
+            <span style="font-family:'JetBrains Mono',monospace">${scores[i] === 1 ? 'Yes' : scores[i] === 0 ? 'No' : '—'}</span>
           </div>
           <div class="bar"><div class="bar-fill" style="width:${scores[i] ? scores[i]/scale*100 : 0}%;background:var(--accent)"></div></div>
         </div>`).join('');
       return `<div class="card" style="margin-bottom:0.75rem;padding:1.2rem">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
           <div style="font-weight:600">Peer Review ${idx + 1}</div>
-          <div style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--accent)">${r.WeightedScore?.toFixed(1)}<span style="font-size:0.85rem;color:var(--text3)">/${scale}</span></div>
+          <div style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--accent)">${r.WeightedScore?.toFixed(1)}<span style="font-size:0.85rem;color:var(--text3)">%</span></div>
         </div>
         ${criteriaHtml}
-        ${r.FeedbackStrengths ? `<div class="peer-feedback-item">💪 <strong>Strength:</strong> ${r.FeedbackStrengths}</div>` : ''}
-        ${r.FeedbackImprove ? `<div class="peer-feedback-item">📈 <strong>To improve:</strong> ${r.FeedbackImprove}</div>` : ''}
       </div>`;
     }).join('');
 
     document.getElementById('results-content').innerHTML = `
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start;margin-bottom:2rem">
+      <div style="display:grid;grid-template-columns:auto;gap:1.5rem;align-items:start;margin-bottom:2rem">
         <div class="card" style="text-align:center;padding:1.75rem 2rem;min-width:180px">
           <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:0.5rem">Your Final Mark</div>
-          <div class="result-score-big" style="color:${pct>=70?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">${finalMark}</div>
-          <div style="font-size:0.85rem;color:var(--text3);margin-top:0.25rem">/ ${scale}</div>
+          <div class="result-score-big" style="color:${pct>=70?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">${finalMark}%</div>
           <hr>
           <div style="font-size:0.78rem;color:var(--text3)">${myReceivedReviews.length} peer review${myReceivedReviews.length !== 1 ? 's' : ''}</div>
           ${result.InstructorOverride != null ? `<div style="font-size:0.72rem;color:var(--amber);margin-top:0.25rem">⚠ Instructor adjusted</div>` : ''}
-        </div>
-        <div class="card">
-          <h3>Average by criterion</h3>
-          ${appState.criteria.map((c, ci) => {
-            const allScores = myReceivedReviews.map(r => JSON.parse(r.ScoresJSON || '[]')[ci]).filter(x => x !== undefined);
-            const avg = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
-            return `<div style="margin-bottom:0.85rem">
-              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.3rem">
-                <span>${c.Title} <span style="color:var(--text3);font-size:0.75rem">(${c.WeightPercent}%)</span></span>
-                <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${avg.toFixed(1)}/${scale}</span>
-              </div>
-              <div class="bar"><div class="bar-fill" style="width:${avg/scale*100}%;background:var(--accent)"></div></div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
+        </div>      </div>
       <h3 style="margin-bottom:1rem">Individual Peer Reviews (${myReceivedReviews.length})</h3>
       ${feedbackHtml || '<div class="card"><p style="color:var(--text2)">No peer feedback available.</p></div>'}`;
 
