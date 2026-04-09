@@ -212,6 +212,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .member-chip{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:0.15rem 0.55rem;font-size:0.75rem;color:var(--text2);font-family:'JetBrains Mono',monospace;display:inline-block;margin:0.2rem}
 .member-chip.done{border-color:rgba(62,207,142,0.3);color:var(--green);background:rgba(62,207,142,0.08)}
 .member-chip.failed{border-color:rgba(240,82,82,0.3);color:var(--red);background:rgba(240,82,82,0.08)}
+
+/* MODE TOGGLE */
+.mode-toggle{display:flex;align-items:center;gap:0.5rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.25rem 0.5rem}
+.mode-toggle-label{font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em}
+.mode-toggle select{background:transparent;border:none;color:var(--text);font-size:0.82rem;font-family:'Instrument Sans',sans-serif;cursor:pointer;outline:none;padding:0.25rem 0.5rem}
+.mode-toggle select option{background:var(--surface2)}
+
+/* ASSIGNMENT LINK */
+.assignment-link-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.assignment-link-box input{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:0.4rem 0.75rem;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--text);flex:1;min-width:200px}
+.copy-btn{background:var(--accent);color:white;border:none;border-radius:4px;padding:0.4rem 0.85rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all 0.15s}
+.copy-btn:hover{background:var(--accent2)}
 </style>
 </head>
 <body>
@@ -239,11 +251,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="frow"><label>Submission deadline</label><input type="date" id="m-sub"></div>
       <div class="frow"><label>Marking deadline</label><input type="date" id="m-mark"></div>
     </div>
-    <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="1" selected>1 (Yes/No)</option></select></div>
-    <div class="frow"><label>Anonymous peer marking?</label><select id="m-anon"><option value="1">Yes — hide student names</option><option value="0">No — show names</option></select></div>
+    <div class="grid2">
+      <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="1" selected>1 (Yes/No)</option></select></div>
+      <div class="frow"><label>Anonymous peer marking?</label><select id="m-anon"><option value="1">Yes — hide student names</option><option value="0">No — show names</option></select></div>
+    </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancel</button>
       <button class="btn btn-primary" id="btn-create-assignment" onclick="createAssignment()">Create →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Criteria -->
+<div class="overlay" id="modal-edit-criteria">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head"><h2>Edit Marking Criteria</h2><button class="modal-close" onclick="closeModal('modal-edit-criteria')">✕</button></div>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:1.25rem">Define the marking criteria for this assignment. Weights must sum to 100%.</p>
+    <div id="edit-criteria-editor"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addEditCriterion()" style="margin-top:0.75rem">+ Add criterion</button>
+    <div id="edit-weight-warning" style="display:none;color:var(--amber);font-size:0.82rem;margin-top:0.75rem"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-criteria')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditCriteria()">Save to SharePoint</button>
     </div>
   </div>
 </div>
@@ -283,6 +312,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="nav-tab" onclick="nav('help')">Help</div>
   </div>
   <div class="nav-right">
+    <div id="mode-toggle-container" style="display:none" class="mode-toggle">
+      <span class="mode-toggle-label">Mode:</span>
+      <select id="mode-select" onchange="switchMode(this.value)">
+        <option value="instructor">Instructor</option>
+        <option value="student">Student</option>
+      </select>
+    </div>
     <div class="user-chip">
       <div class="user-avatar" id="user-avatar">?</div>
       <span id="user-name">Loading…</span>
@@ -298,12 +334,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <div class="page active" id="page-dashboard">
   <div class="page-head">
     <div><h1>Dashboard</h1><p class="sub" id="dash-sub">Loading…</p></div>
-    <div style="display:flex;gap:0.75rem" id="dash-instructor-actions" style="display:none">
-      <button class="btn btn-ghost" onclick="openCriteriaModal()">Edit Criteria</button>
+    <div id="dash-instructor-actions" style="display:none;gap:0.75rem">
+      <button class="btn btn-ghost" onclick="openEditCriteriaModal()">Edit Criteria</button>
       <button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>
     </div>
   </div>
   <div id="dash-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+  <div id="assignment-link-container" style="display:none;margin-top:1.5rem"></div>
 </div>
 
 <!-- GROUPS -->
@@ -540,7 +577,7 @@ const CONFIG = {
   clientId:  "c75873c8-bc64-402b-9863-45966f1a7514",
   tenantId:  "67bda7ee-fd80-41ef-ac91-358418290a1e",
   siteId:    "uniofnottm.sharepoint.com,9ce01f9b-876f-4fec-92f6-002af6ffdab2,5408bd4e-bd2b-4a08-9f41-d51703f2c177",
-  redirectUri: "https://jonathanongithub.github.io/peermark/",
+  redirectUri: "https://tj41npeg25g8.space.minimax.io/",
   lists: {
     assignments: "0dacb4e5-1e00-487c-9b0a-fdfc42794318",
     groups:      "df47b0ff-365d-4645-ac2d-c19d02481aa4",
@@ -550,8 +587,10 @@ const CONFIG = {
     results:     "edc6519e-10f6-476c-b8ba-5fce462ff4b3"
   },
   // Instructor emails — add yours and any colleagues here
-  instructors: ["jonathan.burley@nottingham.ac.uk"]
-  //instructors: [""]
+  instructors: [
+    "jonathan.burley@nottingham.ac.uk"
+    // Add more instructor emails here
+  ]
 };
 
 const QUESTIONS = [
@@ -583,8 +622,10 @@ const msalInstance = new msal.PublicClientApplication({
 });
 
 let currentUser = null;   // { name, email, isInstructor }
+let effectiveRole = 'instructor'; // 'instructor' or 'student' (for instructor testing mode)
 let appState = {
   assignment: null,       // current assignment object from SharePoint
+  assignmentUUID: null,   // UUID for this assignment instance
   criteria: [],           // criteria rows
   groups: [],             // group rows
   students: [],           // student rows
@@ -598,6 +639,27 @@ let appState = {
 // =====================================================
 // AUTH
 // =====================================================
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function getAssignmentIdFromURL() {
+  const hash = window.location.hash;
+  const match = hash.match(/\/([a-f0-9-]{36})/i);
+  return match ? match[1] : null;
+}
+
+function switchMode(mode) {
+  effectiveRole = mode;
+  renderDashboard();
+  if (mode === 'student') {
+    renderMarkingStudent();
+  }
+}
+
 async function init() {
   try {
     setLoading("Handling sign-in…");
@@ -611,14 +673,37 @@ async function init() {
     }
 
     const account = accounts[0];
-    const email = account.username.toLowerCase();
-    const isInstructor = CONFIG.instructors.includes(email);
+    const email = account.username.toLowerCase().trim();
+
+    // Case-insensitive instructor check
+    const isInstructor = CONFIG.instructors.some(i => i.toLowerCase().trim() === email);
+
+    // Debug: log email comparison
+    console.log('=== PEERMARK DEBUG ===');
+    console.log('Login email:', email);
+    console.log('Configured instructors:', CONFIG.instructors);
+    console.log('Match result:', isInstructor);
 
     currentUser = {
       name: account.name || email,
       email,
       isInstructor
     };
+
+    // Debug: log user object
+    console.log('User object:', currentUser);
+    console.log('effectiveRole:', effectiveRole);
+
+    // Show mode toggle for instructors
+    if (isInstructor) {
+      document.getElementById('mode-toggle-container').style.display = 'flex';
+      // Default to instructor mode
+      effectiveRole = 'instructor';
+      document.getElementById('mode-select').value = effectiveRole;
+    } else {
+      // Regular students - always student mode
+      effectiveRole = 'student';
+    }
 
     // Update nav user chip
     document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
@@ -630,7 +715,6 @@ async function init() {
     if (isInstructor) {
       document.getElementById('tab-moderation').classList.remove('hidden');
       document.getElementById('tab-results').classList.remove('hidden');
-      document.getElementById('dash-instructor-actions').style.display = 'flex';
     } else {
       document.getElementById('tab-groups').classList.add('hidden');
       document.getElementById('tab-results').classList.remove('hidden');
@@ -639,8 +723,15 @@ async function init() {
     document.getElementById('main-nav').style.display = 'flex';
     hideLoading();
 
-    // Load initial data
-    await loadApp();
+    // Check for assignment UUID in URL
+    const urlAssignmentId = getAssignmentIdFromURL();
+    if (urlAssignmentId) {
+      // Load specific assignment by UUID
+      await loadAppWithUUID(urlAssignmentId);
+    } else {
+      // Load default (most recent) assignment
+      await loadApp();
+    }
 
   } catch (err) {
     console.error(err);
@@ -660,6 +751,15 @@ async function getToken() {
 
 function signOut() {
   msalInstance.logoutRedirect();
+}
+
+// Role checking helper
+function isInstructorMode() {
+  return currentUser && currentUser.isInstructor && effectiveRole === 'instructor';
+}
+
+function isStudentMode() {
+  return !currentUser.isInstructor || effectiveRole === 'student';
 }
 
 // =====================================================
@@ -710,6 +810,18 @@ async function loadApp() {
     const items = await graphGetAll(listPath('assignments', '?$expand=fields&$top=10'));
     if (items.length > 0) {
       appState.assignment = { id: items[0].id, ...items[0].fields };
+
+      // Ensure assignment has UUID - generate and save if missing
+      if (!appState.assignment.UUID) {
+        appState.assignmentUUID = generateUUID();
+        // Save UUID to SharePoint
+        await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
+          fields: { UUID: appState.assignmentUUID }
+        });
+        console.log('Generated and saved UUID:', appState.assignmentUUID);
+      } else {
+        appState.assignmentUUID = appState.assignment.UUID;
+      }
     }
 
     // Load criteria
@@ -724,7 +836,7 @@ async function loadApp() {
     // Load groups and students in background
     if (appState.assignment) {
       await loadGroupsAndStudents();
-      if (!currentUser.isInstructor) await loadMyData();
+      if (isStudentMode()) await loadMyData();
     }
 
   } catch (err) {
@@ -734,13 +846,74 @@ async function loadApp() {
   }
 }
 
+async function loadAppWithUUID(uuid) {
+  setLoading("Loading assignment…");
+  try {
+    // Find assignment by UUID
+    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/CreatedAt desc&$top=100'));
+    const assignment = items.find(i => i.fields.UUID === uuid);
+
+    if (assignment) {
+      appState.assignment = { id: assignment.id, ...assignment.fields };
+      appState.assignmentUUID = uuid;
+
+      // Ensure assignment has UUID saved - generate and save if not
+      if (!appState.assignment.UUID) {
+        appState.assignmentUUID = uuid;
+        await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
+          fields: { UUID: uuid }
+        });
+      }
+    } else {
+      // UUID not found, fall back to most recent
+      showToast('Assignment not found. Loading default.', 'warn');
+      await loadApp();
+      return;
+    }
+
+    // Load criteria
+    if (appState.assignment) {
+      const cItems = (await graphGetAll(listPath('criteria', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
+      appState.criteria = cItems.map(i => ({ id: i.id, ...i.fields }));
+    }
+
+    hideLoading();
+    renderDashboard();
+
+    // Load groups and students - always for instructor view
+    if (appState.assignment) {
+      await loadGroupsAndStudents();
+      if (isStudentMode()) await loadMyData();
+    }
+
+    // Refresh dashboard to show assignment link
+    renderDashboard();
+
+  } catch (err) {
+    hideLoading();
+    showToast('Error loading data: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
 async function loadGroupsAndStudents() {
+  console.log('=== Loading Groups & Students ===');
+  console.log('Current assignment ID:', appState.assignment?.id);
+
   const [gItems, sItems] = await Promise.all([
     graphGetAll(listPath('groups', '?$expand=fields')),
     graphGetAll(listPath('students', '?$expand=fields'))
   ]);
+
+  console.log('All groups from SharePoint:', gItems.length);
+  console.log('All students from SharePoint:', sItems.length);
+
   appState.groups = gItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
   appState.students = sItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
+
+  console.log('Filtered groups:', appState.groups.length);
+  console.log('Filtered students:', appState.students.length);
+
   renderDashboard();
 }
 
@@ -817,7 +990,18 @@ function closeModal(id) { document.getElementById(id).classList.remove('show') }
 // =====================================================
 function renderDashboard() {
   const a = appState.assignment;
-  const isInstructor = currentUser.isInstructor;
+  const isInstructor = isInstructorMode();
+  const canSeeInstructorActions = currentUser && currentUser.isInstructor && effectiveRole === 'instructor';
+
+  // Show/hide instructor actions on dashboard - only in instructor mode
+  if (canSeeInstructorActions) {
+    document.getElementById('dash-instructor-actions').style.display = 'flex';
+  } else {
+    document.getElementById('dash-instructor-actions').style.display = 'none';
+  }
+
+  // Show assignment link for instructors
+  renderAssignmentLink();
 
   if (!a) {
     document.getElementById('dash-sub').textContent = 'No assignments yet';
@@ -826,7 +1010,7 @@ function renderDashboard() {
         <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.3">📋</div>
         <h2 style="margin-bottom:0.5rem">No assignments yet</h2>
         <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1.5rem">Create your first peer marking assignment to get started.</p>
-        ${isInstructor ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>` : ''}
+        ${canSeeInstructorActions ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>` : ''}
       </div>`;
     return;
   }
@@ -876,7 +1060,7 @@ function renderDashboard() {
         </div>
       </div>`;
   } else {
-    // Student dashboard
+    // Student dashboard (or instructor in student mode)
     const ms = appState.myStudent;
     if (!ms) {
       document.getElementById('dash-content').innerHTML = `<div class="card"><p style="color:var(--text2)">You are not enrolled in this assignment. Please contact your module coordinator.</p></div>`;
@@ -909,11 +1093,45 @@ function renderDashboard() {
   }
 }
 
+function renderAssignmentLink() {
+  const container = document.getElementById('assignment-link-container');
+  if (!appState.assignment || !currentUser || !currentUser.isInstructor || effectiveRole !== 'instructor') {
+    container.style.display = 'none';
+    return;
+  }
+
+  const baseUrl = window.location.origin + window.location.pathname;
+  const assignmentUrl = baseUrl + '#/assignment/' + appState.assignmentUUID;
+
+  container.innerHTML = `
+    <div class="assignment-link-box">
+      <div style="flex:1">
+        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:0.4rem">Student Access Link</div>
+        <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.5rem">Share this link with students to access this assignment:</div>
+        <input type="text" id="assignment-link-input" value="${assignmentUrl}" readonly onclick="this.select()">
+      </div>
+      <button class="copy-btn" onclick="copyAssignmentLink()">Copy Link</button>
+    </div>`;
+  container.style.display = 'block';
+}
+
+function copyAssignmentLink() {
+  const input = document.getElementById('assignment-link-input');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast('✓ Link copied to clipboard');
+  }).catch(() => {
+    // Fallback for older browsers
+    document.execCommand('copy');
+    showToast('✓ Link copied to clipboard');
+  });
+}
+
 // =====================================================
 // GROUPS — IMPORT CSV
 // =====================================================
 function renderGroups() {
-  if (!currentUser.isInstructor) {
+  if (!isInstructorMode()) {
     document.getElementById('groups-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Groups management is instructor-only.</div></div>`;
     return;
   }
@@ -950,6 +1168,10 @@ function downloadSampleCSV() {
 async function importCSV(e) {
   const file = e.target.files[0];
   if (!file || !appState.assignment) return;
+  if (!isInstructorMode()) {
+    showToast('Only instructors can import students', 'error');
+    return;
+  }
   const text = await file.text();
   const lines = text.trim().split('\n');
   const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
@@ -1006,7 +1228,7 @@ async function importCSV(e) {
     }
 
     await loadGroupsAndStudents();
-    if (!currentUser.isInstructor) await loadMyData();
+    if (isStudentMode()) await loadMyData();
     hideLoading();
     showToast(`✓ Imported ${rows.length} students across ${groupNames.length} groups`);
     renderGroups();
@@ -1023,7 +1245,7 @@ async function importCSV(e) {
 // MARKING
 // =====================================================
 function renderMarking() {
-  if (currentUser.isInstructor) {
+  if (isInstructorMode()) {
     renderMarkingInstructor();
   } else {
     renderMarkingStudent();
@@ -1214,7 +1436,7 @@ async function submitReview(revieweeStudentId) {
 // MODERATION
 // =====================================================
 async function renderModeration() {
-  if (!currentUser.isInstructor) {
+  if (!isInstructorMode()) {
     document.getElementById('moderation-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Moderation is instructor-only.</div></div>`;
     return;
   }
@@ -1398,7 +1620,7 @@ function showStudentDetail(studentId) {
 // RESULTS
 // =====================================================
 async function renderResults() {
-  if (currentUser.isInstructor) {
+  if (isInstructorMode()) {
     document.getElementById('results-instructor-actions').style.display = 'flex';
     renderResultsInstructor();
   } else {
@@ -1524,10 +1746,94 @@ async function renderResultsStudent() {
 // CRITERIA EDITOR
 // =====================================================
 function openCriteriaModal() {
-  renderCriteriaEditor();
-  openModal('modal-criteria');
+  // Legacy function - redirect to edit criteria modal
+  openEditCriteriaModal();
 }
 
+function openEditCriteriaModal() {
+  if (!isInstructorMode()) {
+    showToast('Only instructors can edit criteria', 'error');
+    return;
+  }
+  if (!appState.assignment) {
+    showToast('Create an assignment first', 'error');
+    return;
+  }
+  renderEditCriteriaEditor();
+  openModal('modal-edit-criteria');
+}
+
+function renderEditCriteriaEditor() {
+  // Initialize with default criteria if none exist
+  if (appState.criteria.length === 0) {
+    appState.criteria = [
+      { Title: 'Team Participation', Description: 'Attended meetings and contributed actively', WeightPercent: 25, SortOrder: 1 },
+      { Title: 'Task Completion', Description: 'Completed assigned tasks on time', WeightPercent: 25, SortOrder: 2 },
+      { Title: 'Quality of Work', Description: 'Produced high-quality output', WeightPercent: 25, SortOrder: 3 },
+      { Title: 'Communication', Description: 'Communicated effectively with team', WeightPercent: 25, SortOrder: 4 }
+    ];
+  }
+
+  document.getElementById('edit-criteria-editor').innerHTML = appState.criteria.map((c, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px 40px;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+      <div><label>Name</label><input type="text" value="${c.Title || ''}" oninput="appState.criteria[${i}].Title=this.value"></div>
+      <div><label>Description</label><input type="text" value="${c.Description || ''}" oninput="appState.criteria[${i}].Description=this.value"></div>
+      <div><label>Weight %</label><input type="number" value="${c.WeightPercent || 0}" min="1" max="100" oninput="appState.criteria[${i}].WeightPercent=parseInt(this.value)||0;checkEditWeights()"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="removeEditCriterionLocal(${i})">✕</button>
+    </div>`).join('');
+  checkEditWeights();
+}
+
+function addEditCriterion() {
+  appState.criteria.push({ Title: 'New Criterion', Description: '', WeightPercent: 0, SortOrder: appState.criteria.length + 1 });
+  renderEditCriteriaEditor();
+}
+
+function removeEditCriterionLocal(i) {
+  appState.criteria.splice(i, 1);
+  renderEditCriteriaEditor();
+}
+
+function checkEditWeights() {
+  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  const w = document.getElementById('edit-weight-warning');
+  if (total !== 100) { w.style.display = 'block'; w.textContent = `⚠ Weights sum to ${total}% — must be 100%`; }
+  else w.style.display = 'none';
+}
+
+async function saveEditCriteria() {
+  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  if (total !== 100) { showToast('Weights must sum to 100%', 'error'); return; }
+  if (!appState.assignment) { showToast('Create an assignment first', 'error'); return; }
+
+  closeModal('modal-edit-criteria');
+  showToast('Saving criteria…', 'info');
+
+  try {
+    // Delete existing criteria for this assignment then re-create
+    for (const c of appState.criteria.filter(c => c.id)) {
+      await graph('DELETE', listPath('criteria', '/' + c.id));
+    }
+    for (let i = 0; i < appState.criteria.length; i++) {
+      const c = appState.criteria[i];
+      await graph('POST', listPath('criteria'), {
+        fields: {
+          Title:        c.Title,
+          Description:  c.Description || '',
+          WeightPercent: c.WeightPercent,
+          SortOrder:    i + 1,
+          AssignmentId: appState.assignment.id
+        }
+      });
+    }
+    showToast('✓ Criteria saved to SharePoint');
+  } catch (err) {
+    showToast('Error saving criteria: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// Legacy criteria modal functions (for modal-criteria)
 function renderCriteriaEditor() {
   document.getElementById('criteria-editor').innerHTML = appState.criteria.map((c, i) => `
     <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
@@ -1600,6 +1906,7 @@ async function createAssignment() {
   btn.textContent = 'Creating…';
 
   try {
+    const assignmentUUID = generateUUID();
     const res = await graph('POST', listPath('assignments'), {
       fields: {
         Title:              title,
@@ -1610,11 +1917,13 @@ async function createAssignment() {
         MaxScore:           parseInt(document.getElementById('m-scale').value),
         Anonymous:          document.getElementById('m-anon').value === '1',
         Released:           false,
-        CreatedByEmail:     currentUser.email
+        CreatedByEmail:     currentUser.email,
+        UUID:               assignmentUUID
       }
     });
 
     appState.assignment = { id: res.id, ...res.fields };
+    appState.assignmentUUID = assignmentUUID;
     closeModal('modal-new');
     showToast('✓ Assignment created in SharePoint');
     btn.disabled = false;
@@ -1652,7 +1961,7 @@ function exportCSV() {
 function renderHelp() {
   const instructorSection = document.getElementById('help-instructor-section');
   if (instructorSection) {
-    instructorSection.style.display = currentUser?.isInstructor ? 'block' : 'none';
+    instructorSection.style.display = currentUser && currentUser.isInstructor ? 'block' : 'none';
   }
 }
 
