@@ -625,7 +625,7 @@ let currentUser = null;   // { name, email, isInstructor }
 let effectiveRole = 'instructor'; // 'instructor' or 'student' (for instructor testing mode)
 let appState = {
   assignment: null,       // current assignment object from SharePoint
-  assignmentUUID: null,   // UUID for this assignment instance
+  assignmentUUID: null,   // UUID for this assignment instance (stored in localStorage)
   criteria: [],           // criteria rows
   groups: [],             // group rows
   students: [],           // student rows
@@ -811,17 +811,26 @@ async function loadApp() {
     if (items.length > 0) {
       appState.assignment = { id: items[0].id, ...items[0].fields };
 
-      // Ensure assignment has UUID - generate and save if missing
-      if (!appState.assignment.UUID) {
-        appState.assignmentUUID = generateUUID();
-        // Save UUID to SharePoint
-        await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
-          fields: { UUID: appState.assignmentUUID }
-        });
-        console.log('Generated and saved UUID:', appState.assignmentUUID);
+      // Check if UUID already exists in SharePoint
+      if (appState.assignment.PM_UUID) {
+        appState.assignmentUUID = appState.assignment.PM_UUID;
+        console.log('Loaded UUID from SharePoint:', appState.assignmentUUID);
       } else {
-        appState.assignmentUUID = appState.assignment.UUID;
+        // Generate UUID and save to SharePoint
+        appState.assignmentUUID = generateUUID();
+        try {
+          await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
+            fields: { PM_UUID: appState.assignmentUUID }
+          });
+          console.log('Generated and saved UUID to SharePoint:', appState.assignmentUUID);
+        } catch (e) {
+          // Field might not exist in SharePoint - just use localStorage
+          console.log('UUID field not in SharePoint, using localStorage:', appState.assignmentUUID);
+          localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
+        }
       }
+      // Also save to localStorage for backup
+      localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
     }
 
     // Load criteria
@@ -849,23 +858,18 @@ async function loadApp() {
 async function loadAppWithUUID(uuid) {
   setLoading("Loading assignment…");
   try {
-    // Find assignment by UUID
+    // Load all assignments and find by PM_UUID field
     const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/CreatedAt desc&$top=100'));
-    const assignment = items.find(i => i.fields.UUID === uuid);
+    const assignment = items.find(i => i.fields.PM_UUID === uuid);
 
     if (assignment) {
       appState.assignment = { id: assignment.id, ...assignment.fields };
       appState.assignmentUUID = uuid;
-
-      // Ensure assignment has UUID saved - generate and save if not
-      if (!appState.assignment.UUID) {
-        appState.assignmentUUID = uuid;
-        await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
-          fields: { UUID: uuid }
-        });
-      }
+      // Save to localStorage as backup
+      localStorage.setItem('pm_uuid_' + appState.assignment.id, uuid);
+      localStorage.setItem('pm_aid_' + uuid, appState.assignment.id);
     } else {
-      // UUID not found, fall back to most recent
+      // UUID not found - fall back to most recent
       showToast('Assignment not found. Loading default.', 'warn');
       await loadApp();
       return;
