@@ -241,8 +241,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <!-- MODAL: New Assignment -->
 <div class="overlay" id="modal-new">
   <div class="modal">
-    <div class="modal-head"><h2>New Assignment</h2><button class="modal-close" onclick="closeModal('modal-new')">✕</button></div>
-    <div class="frow"><label>Assignment title</label><input type="text" id="m-title" placeholder="e.g. Reflective Essay — Week 6"></div>
+    <div class="modal-head"><h2>New Assessment</h2><button class="modal-close" onclick="closeModal('modal-new')">✕</button></div>
+    <div class="frow"><label>Assessment title</label><input type="text" id="m-title" placeholder="e.g. Reflective Essay — Week 6"></div>
     <div class="grid2">
       <div class="frow"><label>Module code</label><input type="text" id="m-mod" placeholder="CS401"></div>
       <div class="frow"><label>Academic year</label><input type="text" id="m-year" placeholder="2025/26"></div>
@@ -258,6 +258,21 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancel</button>
       <button class="btn btn-primary" id="btn-create-assignment" onclick="createAssignment()">Create →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Delete Assessment Confirmation -->
+<div class="overlay" id="modal-delete">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head" style="border-color:rgba(240,82,82,0.3)"><h2 style="color:var(--red)">Delete Assessment</h2><button class="modal-close" onclick="closeModal('modal-delete')">✕</button></div>
+    <p style="color:var(--text2);margin-bottom:1rem">Are you sure you want to delete <strong id="delete-assessment-name" style="color:var(--text)"></strong>?</p>
+    <div style="background:rgba(240,82,82,0.08);border:1px solid rgba(240,82,82,0.2);border-radius:6px;padding:0.85rem 1rem;font-size:0.85rem;color:var(--text2);margin-bottom:1.5rem">
+      ⚠ <strong style="color:var(--red)">Warning:</strong> This will delete all groups, students, reviews, and results associated with this assessment. This action cannot be undone.
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-delete')">Cancel</button>
+      <button class="btn btn-red" id="btn-confirm-delete" onclick="deleteAssessment()">Delete Assessment</button>
     </div>
   </div>
 </div>
@@ -304,14 +319,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <nav id="main-nav" style="display:none">
   <div class="brand">PeerMark<span class="brand-dot">·</span></div>
   <div class="nav-center">
-    <div class="nav-tab active" onclick="nav('dashboard')">Dashboard</div>
-    <div class="nav-tab" onclick="nav('groups')" id="tab-groups">Groups</div>
-    <div class="nav-tab" onclick="nav('marking')">Marking</div>
-    <div class="nav-tab hidden" onclick="nav('moderation')" id="tab-moderation">Moderation</div>
-    <div class="nav-tab hidden" onclick="nav('results')" id="tab-results">Results</div>
-    <div class="nav-tab" onclick="nav('help')">Help</div>
+    <div class="nav-tab active" onclick="nav('dashboard')" id="tab-dashboard">Dashboard</div>
+    <div class="nav-tab" onclick="nav('overview')" id="tab-overview">Overview</div>
+    <div class="nav-tab" onclick="nav('criteria')" id="tab-criteria">Criteria</div>
+    <div class="nav-tab" onclick="nav('students')" id="tab-students">Students</div>
+    <div class="nav-tab" onclick="nav('marking')" id="tab-marking">Marking</div>
+    <div class="nav-tab" onclick="nav('moderation')" id="tab-moderation">Moderation</div>
+    <div class="nav-tab" onclick="nav('results')" id="tab-results">Results</div>
+    <div class="nav-tab" onclick="nav('help')" id="tab-help">Help</div>
   </div>
   <div class="nav-right">
+    <!-- Assignment selector for instructors -->
+    <div id="assignment-selector-container" style="display:none">
+      <select id="assignment-select" onchange="selectAssignment(this.value)" class="assignment-select">
+        <option value="">Loading...</option>
+      </select>
+    </div>
     <div id="mode-toggle-container" style="display:none" class="mode-toggle">
       <span class="mode-toggle-label">Mode:</span>
       <select id="mode-select" onchange="switchMode(this.value)">
@@ -328,40 +351,74 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   </div>
 </nav>
 
+<style>
+.assignment-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.82rem;
+  font-family: 'Instrument Sans', sans-serif;
+  cursor: pointer;
+  max-width: 220px;
+}
+.assessment-select option {
+  background: var(--surface2);
+  color: var(--text);
+}
+.active-assessment {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 1px rgba(79, 142, 247, 0.3);
+}
+</style>
+
 <div class="wrap">
 
 <!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
   <div class="page-head">
-    <div><h1>Dashboard</h1><p class="sub" id="dash-sub">Loading…</p></div>
+    <div><h1>Dashboard</h1><p class="sub" id="dash-sub">All assessments</p></div>
     <div id="dash-instructor-actions" style="display:none;gap:0.75rem">
-      <button class="btn btn-ghost" onclick="openEditCriteriaModal()">Edit Criteria</button>
-      <button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>
+      <button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assessment</button>
     </div>
   </div>
   <div id="dash-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
-  <div id="assignment-link-container" style="display:none;margin-top:1.5rem"></div>
 </div>
 
-<!-- GROUPS -->
-<div class="page" id="page-groups">
+<!-- OVERVIEW -->
+<div class="page" id="page-overview">
   <div class="page-head">
-    <div><h1>Groups</h1><p class="sub">Import student groups from CSV or Moodle export</p></div>
-    <div style="display:flex;gap:0.75rem">
+    <div><h1 id="overview-title">Overview</h1><p class="sub" id="overview-sub">Assessment details</p></div>
+    <div id="overview-actions" style="display:none;gap:0.75rem">
+      <button class="btn btn-ghost" onclick="openModal('modal-new')">Edit Assessment</button>
+    </div>
+  </div>
+  <div id="overview-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+<!-- CRITERIA -->
+<div class="page" id="page-criteria">
+  <div class="page-head">
+    <div><h1>Criteria</h1><p class="sub">Marking criteria for this assessment</p></div>
+    <div id="criteria-actions" style="display:none;gap:0.75rem">
+      <button class="btn btn-ghost" onclick="openEditCriteriaModal()">Edit Criteria</button>
+    </div>
+  </div>
+  <div id="criteria-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+</div>
+
+<!-- STUDENTS -->
+<div class="page" id="page-students">
+  <div class="page-head">
+    <div><h1>Students</h1><p class="sub">Import and manage student groups</p></div>
+    <div id="students-actions" style="display:none;gap:0.75rem">
       <button class="btn btn-ghost btn-sm" onclick="downloadSampleCSV()">⬇ Sample CSV</button>
       <button class="btn btn-primary" onclick="document.getElementById('csv-input').click()">Import CSV</button>
       <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(event)">
     </div>
   </div>
-  <div id="groups-content">
-    <div class="card" style="text-align:center;padding:3rem">
-      <div class="upload-zone" onclick="document.getElementById('csv-input').click()">
-        <div style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4">📋</div>
-        <div style="font-weight:600;margin-bottom:0.4rem">Drop your CSV or Moodle export here</div>
-        <div style="font-size:0.82rem;color:var(--text3)">Expected columns: <code style="color:var(--accent)">student_id, name, email, group</code></div>
-      </div>
-    </div>
-  </div>
+  <div id="students-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
 </div>
 
 <!-- MARKING -->
@@ -654,10 +711,66 @@ function getAssignmentIdFromURL() {
 
 function switchMode(mode) {
   effectiveRole = mode;
+  updateTabVisibility();
   renderDashboard();
   if (mode === 'student') {
     renderMarkingStudent();
   }
+}
+
+// Update tab visibility based on effective role and current assignment
+function updateTabVisibility() {
+  const isInstructor = isInstructorMode();
+  const isStudent = !isInstructor;
+  const hasAssignment = appState.assignment !== null;
+
+  // Dashboard - always visible
+  document.getElementById('tab-dashboard').classList.remove('hidden');
+
+  // Overview - visible when there's an assignment (both views)
+  if (hasAssignment) {
+    document.getElementById('tab-overview').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-overview').classList.add('hidden');
+  }
+
+  // Criteria tab - only for instructors when assignment exists
+  if (isInstructor && hasAssignment) {
+    document.getElementById('tab-criteria').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-criteria').classList.add('hidden');
+  }
+
+  // Students tab - only for instructors when assignment exists
+  if (isInstructor && hasAssignment) {
+    document.getElementById('tab-students').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-students').classList.add('hidden');
+  }
+
+  // Marking - visible to everyone when assignment exists
+  if (hasAssignment) {
+    document.getElementById('tab-marking').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-marking').classList.add('hidden');
+  }
+
+  // Moderation tab - only for instructors when assignment exists
+  if (isInstructor && hasAssignment) {
+    document.getElementById('tab-moderation').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-moderation').classList.add('hidden');
+  }
+
+  // Results tab - visible to everyone when assignment exists
+  if (hasAssignment) {
+    document.getElementById('tab-results').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-results').classList.add('hidden');
+  }
+
+  // Help tab - always visible
+  document.getElementById('tab-help').classList.remove('hidden');
 }
 
 async function init() {
@@ -711,14 +824,8 @@ async function init() {
     document.getElementById('role-badge').textContent = isInstructor ? 'Instructor' : 'Student';
     document.getElementById('role-badge').className = 'role-badge ' + (isInstructor ? 'role-instructor' : 'role-student');
 
-    // Show/hide nav tabs based on role
-    if (isInstructor) {
-      document.getElementById('tab-moderation').classList.remove('hidden');
-      document.getElementById('tab-results').classList.remove('hidden');
-    } else {
-      document.getElementById('tab-groups').classList.add('hidden');
-      document.getElementById('tab-results').classList.remove('hidden');
-    }
+    // Show/hide nav tabs based on effective role
+    updateTabVisibility();
 
     document.getElementById('main-nav').style.display = 'flex';
     hideLoading();
@@ -948,14 +1055,13 @@ function nav(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  const pages = ['dashboard','groups','marking','moderation','results','help'];
-  const tabs = document.querySelectorAll('.nav-tab');
-  const idx = pages.indexOf(page);
-  if (idx >= 0) tabs[idx].classList.add('active');
+  document.getElementById('tab-' + page)?.classList.add('active');
 
   const renders = {
     dashboard: renderDashboard,
-    groups: renderGroups,
+    overview: renderOverview,
+    criteria: renderCriteria,
+    students: renderStudents,
     marking: renderMarking,
     moderation: renderModeration,
     results: renderResults,
@@ -993,108 +1099,174 @@ function closeModal(id) { document.getElementById(id).classList.remove('show') }
 // DASHBOARD
 // =====================================================
 function renderDashboard() {
-  const a = appState.assignment;
   const isInstructor = isInstructorMode();
   const canSeeInstructorActions = currentUser && currentUser.isInstructor && effectiveRole === 'instructor';
 
-  // Show/hide instructor actions on dashboard - only in instructor mode
-  if (canSeeInstructorActions) {
-    document.getElementById('dash-instructor-actions').style.display = 'flex';
-  } else {
-    document.getElementById('dash-instructor-actions').style.display = 'none';
-  }
+  // Show/hide instructor actions on dashboard
+  document.getElementById('dash-instructor-actions').style.display = canSeeInstructorActions ? 'flex' : 'none';
 
-  // Show assignment link for instructors
-  renderAssignmentLink();
+  // Load all assignments and render list
+  loadAllAssignments();
+}
 
-  if (!a) {
-    document.getElementById('dash-sub').textContent = 'No assignments yet';
-    document.getElementById('dash-content').innerHTML = `
-      <div class="card" style="text-align:center;padding:3rem">
-        <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.3">📋</div>
-        <h2 style="margin-bottom:0.5rem">No assignments yet</h2>
-        <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1.5rem">Create your first peer marking assignment to get started.</p>
-        ${canSeeInstructorActions ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>` : ''}
-      </div>`;
-    return;
-  }
+async function loadAllAssignments() {
+  try {
+    setLoading('Loading assessments...');
+    const token = await getToken();
+    const listId = CONFIG.lists.assignments;
 
-  document.getElementById('dash-sub').textContent = a.ModuleCode + ' · ' + (a.AcademicYear || '');
+    const response = await fetch(`${GRAPH}/sites/${CONFIG.siteId}/lists/${listId}/items?$select=id,Title,ModuleCode,AcademicYear,PM_UUID,Created&$top=50&$orderby=Created desc`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
 
-  const students = appState.students;
-  const failed = students.filter(s => s.Failed);
-  const completed = students.filter(s => s.CompletedAllReviews);
-  let totalReviews = 0, doneReviews = 0;
-  appState.groups.forEach(g => {
-    const n = students.filter(s => s.GroupId === g.id).length;
-    totalReviews += n * (n - 1);
-    doneReviews += students.filter(s => s.GroupId === g.id && s.CompletedAllReviews).length * (n - 1);
-  });
-  const pct = totalReviews ? Math.round(doneReviews / totalReviews * 100) : 0;
+    if (!response.ok) throw new Error('Failed to load assessments');
 
-  if (isInstructor) {
-    document.getElementById('dash-content').innerHTML = `
-      <div class="stats">
-        <div class="stat"><div class="stat-label">Groups</div><div class="stat-val">${appState.groups.length}</div><div class="stat-note">Imported</div></div>
-        <div class="stat"><div class="stat-label">Students</div><div class="stat-val">${students.length}</div></div>
-        <div class="stat"><div class="stat-label">Reviews in</div><div class="stat-val">${doneReviews}</div><div class="stat-note">of ${totalReviews}</div></div>
-        <div class="stat"><div class="stat-label">Complete</div><div class="stat-val">${pct}<span style="font-size:1.1rem">%</span></div></div>
-      </div>
-      <div class="card">
-        <div class="sec-head">
-          <div>
-            <h2 style="margin-bottom:0.3rem">${a.Title}</h2>
-            <div style="font-size:0.8rem;color:var(--text3);display:flex;gap:1rem;flex-wrap:wrap">
-              <span class="badge badge-blue">${a.ModuleCode}</span>
-              <span>Submissions due ${a.SubmissionDeadline?.split('T')[0] || '—'}</span>
-              <span>Marking due ${a.MarkingDeadline?.split('T')[0] || '—'}</span>
-              <span>${a.Anonymous ? '🔒 Anonymous' : '👁 Named'}</span>
-              <span>${a.Released ? '<span class="badge badge-green">✓ Results released</span>' : '<span class="badge badge-amber">Results not yet released</span>'}</span>
-            </div>
-          </div>
-          <div style="display:flex;gap:0.75rem">
-            ${failed.length ? `<span class="badge badge-red">⚠ ${failed.length} non-submitter${failed.length > 1 ? 's' : ''}</span>` : '<span class="badge badge-green">✓ No issues</span>'}
-            <button class="btn btn-ghost btn-sm" onclick="nav('moderation')">Moderate</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-          <div style="font-size:0.8rem;color:var(--text2)">Review progress</div>
-          <div class="bar" style="flex:1;max-width:300px"><div class="bar-fill" style="width:${pct}%;background:${pct===100?'var(--green)':pct>60?'var(--amber)':'var(--red)'}"></div></div>
-          <div style="font-size:0.8rem;color:var(--text2)">${doneReviews} / ${totalReviews} (${pct}%)</div>
-        </div>
-      </div>`;
-  } else {
-    // Student dashboard (or instructor in student mode)
-    const ms = appState.myStudent;
-    if (!ms) {
-      document.getElementById('dash-content').innerHTML = `<div class="card"><p style="color:var(--text2)">You are not enrolled in this assignment. Please contact your module coordinator.</p></div>`;
+    const data = await response.json();
+    const assignments = data.value || [];
+
+    if (assignments.length === 0) {
+      document.getElementById('dash-content').innerHTML = `
+        <div class="card" style="text-align:center;padding:3rem">
+          <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.3">📋</div>
+          <h2 style="margin-bottom:0.5rem">No assessments yet</h2>
+          <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1.5rem">Create your first assessment to get started.</p>
+          ${isInstructorMode() ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assessment</button>` : ''}
+        </div>`;
+      hideLoading();
       return;
     }
-    const peers = appState.myPeers;
-    const reviewed = appState.myReviews.map(r => r.RevieweeStudentId);
-    const remaining = peers.filter(p => !reviewed.includes(p.StudentId)).length;
-    const allDone = remaining === 0;
 
-    document.getElementById('dash-content').innerHTML = `
-      <div class="card" style="border-color:${allDone ? 'rgba(62,207,142,0.3)' : 'rgba(245,166,35,0.25)'}">
-        <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:1rem;margin-bottom:1rem">
-          <div>
-            <h2 style="margin-bottom:0.3rem">${a.Title}</h2>
-            <div style="font-size:0.82rem;color:var(--text3)">Marking deadline: <strong style="color:var(--text)">${a.MarkingDeadline?.split('T')[0] || '—'}</strong></div>
+    // Populate assignment selector for instructors
+    if (isInstructorMode()) {
+      const selector = document.getElementById('assignment-select');
+      selector.innerHTML = assignments.map(a =>
+        `<option value="${a.id}" ${appState.assignment?.id === a.id ? 'selected' : ''}>${a.Title || 'Untitled'} (${a.ModuleCode || ''})</option>`
+      ).join('');
+      document.getElementById('assignment-selector-container').style.display = 'flex';
+    }
+
+    // Render assignment list
+    const isInstructorUser = currentUser && currentUser.isInstructor;
+    const canCreate = canSeeInstructorActions;
+
+    // Check if we have an active assignment to show stats for
+    let activeStatsHtml = '';
+    if (appState.assignment) {
+      const students = appState.students;
+      const completed = students.filter(s => s.CompletedAllReviews).length;
+      const failed = students.filter(s => s.Failed).length;
+      let totalReviews = 0, doneReviews = 0;
+      appState.groups.forEach(g => {
+        const n = students.filter(s => s.GroupId === g.id).length;
+        totalReviews += n * (n - 1);
+        doneReviews += students.filter(s => s.GroupId === g.id && s.CompletedAllReviews).length * (n - 1);
+      });
+      const pct = totalReviews ? Math.round(doneReviews / totalReviews * 100) : 0;
+
+      activeStatsHtml = `
+        <div class="card" style="margin-bottom:2rem;border-color:var(--accent);background:rgba(79,142,247,0.05)">
+          <div class="sec-head" style="margin-bottom:1rem">
+            <div>
+              <h2 style="margin-bottom:0.3rem">${appState.assignment.Title || 'Untitled'}</h2>
+              <div style="font-size:0.8rem;color:var(--text3);display:flex;gap:1rem;flex-wrap:wrap">
+                <span class="badge badge-blue">${appState.assignment.ModuleCode || ''}</span>
+                <span>${appState.groups.length} groups · ${students.length} students</span>
+                ${appState.assignment.Released ? '<span class="badge badge-green">Results released</span>' : '<span class="badge badge-amber">Results pending</span>'}
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              ${failed > 0 ? `<span class="badge badge-red">⚠ ${failed} non-submitter${failed > 1 ? 's' : ''}</span>` : ''}
+              <button class="btn btn-ghost btn-sm" onclick="nav('overview')">View Details</button>
+            </div>
           </div>
-          <span class="badge ${allDone ? 'badge-green' : 'badge-amber'}">${allDone ? '✓ All reviews done' : remaining + ' review' + (remaining !== 1 ? 's' : '') + ' remaining'}</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
-          <div class="bar" style="flex:1;max-width:260px"><div class="bar-fill" style="width:${peers.length ? (peers.length - remaining) / peers.length * 100 : 0}%;background:${allDone ? 'var(--green)' : 'var(--accent)'}"></div></div>
-          <div style="font-size:0.82rem;color:var(--text2)">${peers.length - remaining} / ${peers.length} peers reviewed</div>
-          ${!allDone ? `<button class="btn btn-primary btn-sm" onclick="nav('marking')">Continue marking →</button>` : `<button class="btn btn-ghost btn-sm" onclick="nav('results')">View results →</button>`}
-        </div>
-        ${!allDone && ms.Failed ? '' : !allDone ? `
-        <div style="margin-top:0.85rem;padding:0.75rem 1rem;background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.2);border-radius:6px;font-size:0.82rem;color:var(--amber)">
-          ⚠ <strong>Important:</strong> If you do not complete all reviews before the deadline, your mark will be <strong>zero</strong>.
-        </div>` : ''}
-      </div>`;
+          <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+            <div style="font-size:0.8rem;color:var(--text2)">Review progress</div>
+            <div class="bar" style="flex:1;max-width:300px"><div class="bar-fill" style="width:${pct}%;background:${pct===100?'var(--green)':pct>60?'var(--amber)':'var(--red)'}"></div></div>
+            <div style="font-size:0.8rem;color:var(--text2)">${doneReviews} / ${totalReviews} (${pct}%)</div>
+          </div>
+        </div>`;
+    }
+
+    // Build assessment list cards
+    const listHtml = assignments.map(a => {
+      const uuid = a.PM_UUID || 'pending';
+      const link = `${window.location.origin}${window.location.pathname}#/assessment/${uuid}`;
+      const created = a.Created ? new Date(a.Created).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      const isActive = appState.assignment?.id === a.id;
+
+      return `
+        <div class="card assessment-card ${isActive ? 'active-assessment' : ''}" style="margin-bottom:0.75rem;cursor:pointer" onclick="selectAssignmentById('${a.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;flex-wrap:wrap">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem">
+                ${isActive ? '<span class="badge badge-blue">Active</span>' : ''}
+              </div>
+              <h3 style="margin-bottom:0.3rem;font-size:1rem">${a.Title || 'Untitled Assessment'}</h3>
+              <div style="font-size:0.8rem;color:var(--text3)">
+                ${a.ModuleCode || ''} ${a.AcademicYear ? '· ' + a.AcademicYear : ''} ${created ? '· Created ' + created : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-shrink:0">
+              ${isInstructorMode() ? `
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();copyAssessmentLink('${uuid}')" title="Copy link">🔗</button>
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();confirmDeleteAssessment('${a.id}', '${a.Title}')" title="Delete">🗑</button>
+              ` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('dash-content').innerHTML = activeStatsHtml + `
+      <h3 style="margin-bottom:1rem">${isInstructorMode() ? 'All Assessments' : 'Your Assessments'}</h3>
+      ${listHtml}
+    `;
+
+    hideLoading();
+  } catch (err) {
+    console.error('Failed to load assignments:', err);
+    hideLoading();
+    showToast('Failed to load assessments', 'error');
   }
+}
+
+// Select assignment by ID (from dashboard list)
+async function selectAssignmentById(assignmentId) {
+  setLoading('Loading assessment...');
+  try {
+    const a = await loadAssignmentById(assignmentId);
+    if (a) {
+      appState.assignment = a;
+      await loadAppData();
+      updateTabVisibility();
+      // Navigate to Overview
+      nav('overview');
+    }
+  } catch (err) {
+    console.error('Failed to load assignment:', err);
+    showToast('Failed to load assessment', 'error');
+  }
+  hideLoading();
+}
+
+// Copy assessment link for instructor
+function copyAssessmentLink(uuid) {
+  const link = `${window.location.origin}${window.location.pathname}#/assessment/${uuid}`;
+  navigator.clipboard.writeText(link).then(() => {
+    showToast('Assessment link copied!', 'success');
+  }).catch(() => {
+    showToast('Failed to copy link', 'error');
+  });
+}
+
+// Load assignment by ID
+async function loadAssignmentById(id) {
+  const token = await getToken();
+  const response = await fetch(`${GRAPH}/sites/${CONFIG.siteId}/lists/${CONFIG.lists.assignments}/items/${id}?expand=fields`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!response.ok) return null;
+  const data = await response.json();
+  return data.fields;
 }
 
 function renderAssignmentLink() {
@@ -1132,14 +1304,108 @@ function copyAssignmentLink() {
 }
 
 // =====================================================
-// GROUPS — IMPORT CSV
+// CRITERIA
 // =====================================================
-function renderGroups() {
-  if (!isInstructorMode()) {
-    document.getElementById('groups-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Groups management is instructor-only.</div></div>`;
+function renderCriteria() {
+  if (!appState.assignment) {
+    document.getElementById('criteria-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:3rem">
+        <p style="color:var(--text2)">No assessment selected. Go to Dashboard to select an assessment.</p>
+      </div>`;
     return;
   }
 
+  const isInstructor = isInstructorMode();
+  document.getElementById('criteria-actions').style.display = isInstructor ? 'flex' : 'none';
+
+  const criteria = appState.criteria;
+
+  if (criteria.length === 0) {
+    document.getElementById('criteria-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:3rem">
+        <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.3">📝</div>
+        <h2 style="margin-bottom:0.5rem">No criteria defined</h2>
+        <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1.5rem">Add marking criteria to define how students will evaluate their peers.</p>
+        ${isInstructor ? `<button class="btn btn-primary" onclick="openEditCriteriaModal()">+ Add Criteria</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  const totalWeight = criteria.reduce((sum, c) => sum + (parseFloat(c.Weight) || 0), 0);
+  const isValid = Math.abs(totalWeight - 100) < 0.01;
+
+  const criteriaHtml = criteria.map((c, i) => `
+    <div class="card" style="margin-bottom:0.75rem">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem">
+        <div style="flex:1">
+          <div style="font-weight:600;margin-bottom:0.25rem">${c.Title || 'Criterion ' + (i + 1)}</div>
+          <div style="font-size:0.82rem;color:var(--text3);margin-bottom:0.5rem">${c.Description || 'No description'}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-weight:600;font-size:1.2rem;color:var(--accent)">${c.Weight || 0}%</div>
+          <div style="font-size:0.72rem;color:var(--text3)">weight</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('criteria-content').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div>
+        <span style="font-size:0.88rem;color:var(--text2)">Total weight:</span>
+        <span style="font-weight:600;margin-left:0.5rem;color:${isValid ? 'var(--green)' : 'var(--red)'}">${totalWeight.toFixed(1)}%</span>
+        ${!isValid ? '<span style="color:var(--red);font-size:0.8rem;margin-left:0.5rem">(must equal 100%)</span>' : ''}
+      </div>
+    </div>
+    ${criteriaHtml}
+  `;
+}
+
+// =====================================================
+// STUDENTS
+// =====================================================
+function renderStudents() {
+  if (!appState.assignment) {
+    document.getElementById('students-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:3rem">
+        <p style="color:var(--text2)">No assessment selected. Go to Dashboard to select an assessment.</p>
+      </div>`;
+    return;
+  }
+
+  if (!isInstructorMode()) {
+    // Students can view their group members
+    const myStudent = appState.myStudent;
+    if (!myStudent) {
+      document.getElementById('students-content').innerHTML = `
+        <div class="card" style="text-align:center;padding:3rem">
+          <p style="color:var(--text2)">You are not enrolled in this assessment.</p>
+        </div>`;
+      return;
+    }
+
+    const groupMembers = appState.students.filter(s => s.GroupId === myStudent.GroupId && s.id !== myStudent.id);
+    document.getElementById('students-content').innerHTML = `
+      <div class="card" style="margin-bottom:1rem">
+        <h3 style="margin-bottom:0.5rem">Your Group</h3>
+        <p style="color:var(--text2);font-size:0.85rem">You will peer review ${groupMembers.length} fellow student${groupMembers.length !== 1 ? 's' : ''} in your group.</p>
+      </div>
+      ${groupMembers.map(s => `
+        <div class="card" style="margin-bottom:0.5rem">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:500">${s.Title}</div>
+              <div style="font-size:0.8rem;color:var(--text3)">${s.StudentId}</div>
+            </div>
+            ${s.CompletedAllReviews ? '<span class="badge badge-green">✓ Reviewed</span>' : '<span class="badge badge-amber">⏳ Pending</span>'}
+          </div>
+        </div>
+      `).join('')}
+    `;
+    return;
+  }
+
+  // Instructor view - show import UI
   if (appState.groups.length === 0) return; // show upload zone (already in HTML)
 
   const groupsHtml = appState.groups.map(g => {
@@ -1158,7 +1424,151 @@ function renderGroups() {
     </div>`;
   }).join('');
 
-  document.getElementById('groups-content').innerHTML = groupsHtml;
+  document.getElementById('students-content').innerHTML = groupsHtml;
+}
+
+// =====================================================
+// OVERVIEW
+// =====================================================
+function renderOverview() {
+  const a = appState.assignment;
+  if (!a) {
+    document.getElementById('overview-content').innerHTML = `
+      <div class="card" style="text-align:center;padding:3rem">
+        <p style="color:var(--text2)">No assessment selected. Go to Dashboard to select an assessment.</p>
+      </div>`;
+    return;
+  }
+
+  const isInstructor = isInstructorMode();
+  const canEdit = isInstructor;
+
+  // Show/hide edit button
+  document.getElementById('overview-actions').style.display = canEdit ? 'flex' : 'none';
+
+  // Update title and subtitle
+  document.getElementById('overview-title').textContent = a.Title || 'Assessment';
+  document.getElementById('overview-sub').textContent = (a.ModuleCode || '') + (a.AcademicYear ? ' · ' + a.AcademicYear : '');
+
+  // Calculate stats
+  const students = appState.students;
+  const groups = appState.groups;
+  const totalStudents = students.length;
+  const totalGroups = groups.length;
+  const completed = students.filter(s => s.CompletedAllReviews).length;
+  const failed = students.filter(s => s.Failed).length;
+
+  let totalReviews = 0, doneReviews = 0;
+  groups.forEach(g => {
+    const n = students.filter(s => s.GroupId === g.id).length;
+    totalReviews += n * (n - 1);
+    doneReviews += students.filter(s => s.GroupId === g.id && s.CompletedAllReviews).length * (n - 1);
+  });
+  const pct = totalReviews ? Math.round(doneReviews / totalReviews * 100) : 0;
+
+  // Assessment info
+  const releaseStatus = a.Released ? '<span class="badge badge-green">Results Released</span>' : '<span class="badge badge-amber">Results Pending</span>';
+  const deadline = a.Deadline ? new Date(a.Deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not set';
+  const created = a.Created ? new Date(a.Created).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Unknown';
+
+  document.getElementById('overview-content').innerHTML = `
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Groups</div>
+        <div class="stat-val">${totalGroups}</div>
+        <div class="stat-note">${totalGroups > 0 ? 'Active' : 'No groups imported'}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Students</div>
+        <div class="stat-val">${totalStudents}</div>
+        <div class="stat-note">Enrolled</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Completed</div>
+        <div class="stat-val">${completed}/${totalStudents}</div>
+        <div class="stat-note">All reviews done</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Progress</div>
+        <div class="stat-val">${pct}%</div>
+        <div class="stat-note">Reviews submitted</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <h3 style="margin-bottom:1rem">Assessment Details</h3>
+      <div class="grid2" style="gap:2rem">
+        <div>
+          <div style="margin-bottom:0.85rem">
+            <label>Title</label>
+            <div style="font-weight:500">${a.Title || 'Untitled'}</div>
+          </div>
+          <div style="margin-bottom:0.85rem">
+            <label>Module Code</label>
+            <div>${a.ModuleCode || '—'}</div>
+          </div>
+          <div style="margin-bottom:0.85rem">
+            <label>Academic Year</label>
+            <div>${a.AcademicYear || '—'}</div>
+          </div>
+        </div>
+        <div>
+          <div style="margin-bottom:0.85rem">
+            <label>Deadline</label>
+            <div>${deadline}</div>
+          </div>
+          <div style="margin-bottom:0.85rem">
+            <label>Created</label>
+            <div>${created}</div>
+          </div>
+          <div style="margin-bottom:0.85rem">
+            <label>Status</label>
+            <div>${releaseStatus}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    ${failed > 0 ? `
+    <div class="card" style="border-color:rgba(240,82,82,0.3);background:rgba(240,82,82,0.05)">
+      <div style="font-weight:600;color:var(--red);margin-bottom:0.5rem">⚠ Non-submitters Detected</div>
+      <p style="color:var(--text2);font-size:0.88rem">${failed} student${failed > 1 ? 's have' : ' has'} not completed their peer reviews. Their marks will be zero and their reviews will be discarded from peers' averages.</p>
+    </div>
+    ` : ''}
+
+    ${isInstructor ? `
+    <div class="card">
+      <h3 style="margin-bottom:0.75rem">Share Assessment Link</h3>
+      <p style="color:var(--text2);font-size:0.85rem;margin-bottom:1rem">Share this link with students so they can access the marking interface for this assessment:</p>
+      ${renderAssignmentLinkHtml()}
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderAssignmentLinkHtml() {
+  const a = appState.assignment;
+  if (!a || !appState.assignmentUUID) return '<p style="color:var(--text3)">No assessment selected.</p>';
+
+  const baseUrl = window.location.origin + window.location.pathname;
+  const studentLink = baseUrl + '#/assessment/' + appState.assignmentUUID;
+
+  return `
+    <div style="display:flex;gap:0.5rem;align-items:center">
+      <input type="text" id="share-link" readonly value="${studentLink}" style="flex:1;font-family:'JetBrains Mono',monospace;font-size:0.8rem">
+      <button class="btn btn-ghost" onclick="copyShareLink()">Copy</button>
+    </div>
+    <p style="color:var(--text3);font-size:0.75rem;margin-top:0.5rem">Students clicking this link will automatically enter the marking view for this assessment.</p>
+  `;
+}
+
+function copyShareLink() {
+  const link = document.getElementById('share-link').value;
+  navigator.clipboard.writeText(link).then(() => {
+    showToast('Link copied to clipboard!', 'success');
+  }).catch(() => {
+    showToast('Failed to copy', 'error');
+  });
 }
 
 function downloadSampleCSV() {
@@ -1922,23 +2332,114 @@ async function createAssignment() {
         Anonymous:          document.getElementById('m-anon').value === '1',
         Released:           false,
         CreatedByEmail:     currentUser.email,
-        UUID:               assignmentUUID
+        PM_UUID:            assignmentUUID
       }
     });
 
     appState.assignment = { id: res.id, ...res.fields };
     appState.assignmentUUID = assignmentUUID;
     closeModal('modal-new');
-    showToast('✓ Assignment created in SharePoint');
+    showToast('Assessment created successfully');
     btn.disabled = false;
     btn.textContent = 'Create →';
-    renderDashboard();
+
+    // Refresh dashboard and switch to overview
+    await loadAllAssignments();
+    updateTabVisibility();
+    nav('overview');
 
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
     btn.disabled = false;
     btn.textContent = 'Create →';
     console.error(err);
+  }
+}
+
+// =====================================================
+// SELECT ASSIGNMENT (from dropdown)
+// =====================================================
+let pendingDeleteId = null;
+
+async function selectAssignment(assignmentId) {
+  if (!assignmentId) return;
+  setLoading('Loading assessment...');
+  try {
+    const a = await loadAssignmentById(assignmentId);
+    if (a) {
+      appState.assignment = a;
+      await loadAppData();
+      updateTabVisibility();
+      // Refresh dashboard to show active assignment
+      loadAllAssignments();
+    }
+  } catch (err) {
+    console.error('Failed to load assignment:', err);
+    showToast('Failed to load assessment', 'error');
+  }
+  hideLoading();
+}
+
+// =====================================================
+// DELETE ASSESSMENT
+// =====================================================
+function confirmDeleteAssessment(id, title) {
+  pendingDeleteId = id;
+  document.getElementById('delete-assessment-name').textContent = title || 'Untitled Assessment';
+  openModal('modal-delete');
+}
+
+async function deleteAssessment() {
+  if (!pendingDeleteId) return;
+
+  const btn = document.getElementById('btn-confirm-delete');
+  btn.disabled = true;
+  btn.textContent = 'Deleting...';
+
+  try {
+    setLoading('Deleting assessment...');
+
+    // Delete all related data: results, reviews, students, groups, criteria, then assignment
+    const listsToDelete = ['results', 'reviews', 'students', 'groups', 'criteria'];
+
+    for (const listName of listsToDelete) {
+      // Find items linked to this assignment
+      const items = await graph('GET', `${listPath(listName)}?$filter=AssignmentId eq '${pendingDeleteId}'&$select=id`);
+      // Delete each item
+      for (const item of (items.value || [])) {
+        await graph('DELETE', listPath(listName, '/' + item.id));
+      }
+    }
+
+    // Delete the assignment itself
+    await graph('DELETE', listPath('assignments', '/' + pendingDeleteId));
+
+    closeModal('modal-delete');
+    showToast('Assessment deleted successfully');
+
+    // Clear current assignment if it was the one deleted
+    if (appState.assignment?.id === pendingDeleteId) {
+      appState.assignment = null;
+      appState.assignmentUUID = null;
+      appState.groups = [];
+      appState.students = [];
+      appState.criteria = [];
+      appState.reviews = [];
+      appState.results = [];
+    }
+
+    // Refresh dashboard
+    await loadAllAssignments();
+    updateTabVisibility();
+
+  } catch (err) {
+    console.error('Failed to delete assessment:', err);
+    showToast('Failed to delete assessment: ' + err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Delete Assessment';
+    hideLoading();
+    pendingDeleteId = null;
   }
 }
 
@@ -1973,6 +2474,594 @@ function renderHelp() {
 // BOOT
 // =====================================================
 window.addEventListener('DOMContentLoaded', init);
+</script>
+
+<script>
+/**
+ * Iframe 元素高亮注入脚本
+ * 需要在目标网站中引入此脚本来支持跨域 iframe 高亮功能
+ *
+ * 使用方法：
+ * 1. 将此脚本添加到目标网站的 HTML 中
+ * 2. 或通过浏览器扩展、用户脚本等方式注入
+ */
+
+(function () {
+  "use strict";
+
+  // 检查是否在 iframe 中
+  if (window.self === window.top) {
+    return; // 不在 iframe 中，不执行
+  }
+
+  // 检查是否已经初始化过
+  if (window.__iframeHighlightInitialized) {
+    return;
+  }
+  window.__iframeHighlightInitialized = true;
+  console.log("Iframe 高亮脚本已加载");
+
+  // 创建高亮覆盖层
+  var overlay = document.createElement("div");
+  overlay.id = "iframe-highlight-overlay";
+  overlay.style.cssText = "\n    position: fixed;\n    top: 0;\n    left: 0;\n    width: 100vw;\n    height: 100vh;\n    pointer-events: none;\n    z-index: 999999;\n    overflow: hidden;\n  ";
+
+  // 创建悬停高亮框（虚线边框）
+  var highlightBox = document.createElement("div");
+  highlightBox.id = "iframe-highlight-box";
+  highlightBox.style.cssText = "\n    position: absolute;\n    border: 2px dashed #007AFF;\n    background: rgba(0, 122, 255, 0.08);\n    pointer-events: none;\n    display: none;\n    transition: all 0.1s ease;\n    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.8);\n    border-radius: 2px;\n  ";
+
+  // 创建选中节点的常驻高亮框（实线边框）
+  var selectedBox = document.createElement("div");
+  selectedBox.id = "iframe-selected-box";
+  selectedBox.style.cssText = "\n    position: absolute;\n    border: 2px solid #007AFF;\n    pointer-events: none;\n    display: none;\n    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9), 0 0 8px rgba(255, 107, 53, 0.4);\n    border-radius: 2px;\n    z-index: 1000000;\n  ";
+
+  // 创建悬停标签显示
+  var tagLabel = document.createElement("div");
+  tagLabel.id = "iframe-tag-label";
+  tagLabel.style.cssText = "\n    position: absolute;\n    background: #007AFF;\n    color: white;\n    padding: 2px 6px;\n    font-size: 11px;\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;\n    border-radius: 2px;\n    pointer-events: none;\n    display: none;\n    white-space: nowrap;\n    z-index: 1000001;\n    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);\n    font-weight: 500;\n  ";
+
+  // 创建选中节点标签
+  var selectedLabel = document.createElement("div");
+  selectedLabel.id = "iframe-selected-label";
+  selectedLabel.style.cssText = "\n    position: absolute;\n    background: #007AFF;\n    color: white;\n    padding: 3px 8px;\n    font-size: 11px;\n    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;\n    border-radius: 3px;\n    pointer-events: none;\n    display: none;\n    white-space: nowrap;\n    z-index: 1000002;\n    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);\n    font-weight: 600;\n  ";
+  overlay.appendChild(highlightBox);
+  overlay.appendChild(selectedBox);
+  overlay.appendChild(tagLabel);
+  overlay.appendChild(selectedLabel);
+  document.body.appendChild(overlay);
+
+  // 存储当前选中的元素
+  var selectedElement = null;
+  var highlightEnabled = false;
+
+  // 更新选中元素的高亮显示
+  function updateSelectedHighlight(element) {
+    console.log("updateSelectedHighlight called with:", element);
+    if (!element) {
+      selectedBox.style.display = "none";
+      selectedLabel.style.display = "none";
+      selectedElement = null;
+      console.log("Cleared selected highlight");
+      return;
+    }
+    selectedElement = element;
+    var rect = element.getBoundingClientRect();
+    console.log("Selected element rect:", rect);
+
+    // 更新选中高亮框位置
+    selectedBox.style.display = "block";
+    selectedBox.style.left = "".concat(rect.left - 2, "px");
+    selectedBox.style.top = "".concat(rect.top - 2, "px");
+    selectedBox.style.width = "".concat(rect.width + 4, "px");
+    selectedBox.style.height = "".concat(rect.height + 4, "px");
+
+    // 更新选中标签位置和内容
+    selectedLabel.style.display = "block";
+    selectedLabel.textContent = "\u2713 <".concat(element.tagName.toLowerCase(), ">");
+
+    // 计算标签位置，确保不超出视窗
+    var labelTop = rect.top - 28;
+    var labelLeft = rect.left;
+
+    // 如果标签会超出顶部，显示在元素下方
+    if (labelTop < 5) {
+      labelTop = rect.bottom + 5;
+    }
+
+    // 如果标签会超出右侧，向左调整
+    var labelWidth = selectedLabel.offsetWidth || 100; // 预估宽度
+    if (labelLeft + labelWidth > window.innerWidth - 10) {
+      labelLeft = window.innerWidth - labelWidth - 10;
+    }
+    selectedLabel.style.left = "".concat(Math.max(5, labelLeft), "px");
+    selectedLabel.style.top = "".concat(labelTop, "px");
+    console.log("Selected highlight positioned at:", {
+      left: selectedBox.style.left,
+      top: selectedBox.style.top,
+      width: selectedBox.style.width,
+      height: selectedBox.style.height
+    });
+  }
+  function getElementSelector(element) {
+    if (!(element instanceof Element)) throw new Error('Argument must be a DOM element');
+    var segments = [];
+    var current = element;
+    while (current !== document.documentElement) {
+      var selector = '';
+      // 优先检查唯一ID
+      if (current.id && document.querySelectorAll("#".concat(current.id)).length === 1) {
+        segments.unshift("#".concat(current.id));
+        break; // ID唯一，无需继续向上
+      }
+
+      // 生成类名选择器（取第一个有效类名）
+      var classes = Array.from(current.classList).filter(function (c) {
+        return !c.startsWith('js-');
+      });
+      var className = classes.length > 0 ? ".".concat(classes[0]) : '';
+
+      // 生成位置索引（nth-child）
+      var tag = current.tagName.toLowerCase();
+      if (!className) {
+        var siblings = Array.from(current.parentNode.children);
+        var index = siblings.findIndex(function (el) {
+          return el === current;
+        }) + 1;
+        selector = "".concat(tag, ":nth-child(").concat(index, ")");
+      } else {
+        selector = className;
+      }
+      segments.unshift(selector);
+      current = current.parentElement;
+    }
+
+    // 处理根元素
+    if (current === document.documentElement) {
+      segments.unshift('html');
+    }
+    return segments.join(' > ');
+  }
+
+  // 获取元素文本内容
+  function getElementText(element) {
+    var _element$textContent;
+    if (element.tagName === "INPUT") {
+      return element.value || element.placeholder || "";
+    }
+    if (element.tagName === "TEXTAREA") {
+      return element.value || element.placeholder || "";
+    }
+    var text = ((_element$textContent = element.textContent) === null || _element$textContent === void 0 ? void 0 : _element$textContent.trim()) || "";
+    return text.length > 50 ? text.substring(0, 50) + "..." : text;
+  }
+
+  // 获取元素属性信息
+  function getElementAttributes(element) {
+    var attrs = {};
+    for (var i = 0; i < element.attributes.length; i++) {
+      var attr = element.attributes[i];
+      attrs[attr.name] = attr.value;
+    }
+    return attrs;
+  }
+
+  // 鼠标悬停事件处理
+  function handleMouseOver(e) {
+    if (!highlightEnabled) return;
+    var target = e.target;
+    if (!target || target === overlay || target === highlightBox || target === tagLabel || target === selectedBox || target === selectedLabel) {
+      return;
+    }
+
+    // 避免高亮 html 和 body 元素
+    if (target === document.documentElement || target === document.body) {
+      return;
+    }
+
+    // 如果是已选中的元素，不显示悬停高亮
+    if (target === selectedElement) {
+      highlightBox.style.display = "none";
+      tagLabel.style.display = "none";
+      return;
+    }
+    var rect = target.getBoundingClientRect();
+    var selector = getElementSelector(target);
+    var text = getElementText(target);
+    var attributes = getElementAttributes(target);
+
+    // 更新悬停高亮框位置
+    highlightBox.style.display = "block";
+    highlightBox.style.left = "".concat(rect.left - 2, "px");
+    highlightBox.style.top = "".concat(rect.top - 2, "px");
+    highlightBox.style.width = "".concat(rect.width + 4, "px");
+    highlightBox.style.height = "".concat(rect.height + 4, "px");
+
+    // 更新标签位置和内容
+    tagLabel.style.display = "block";
+    tagLabel.textContent = "<".concat(target.tagName.toLowerCase(), ">");
+
+    // 计算标签位置，确保不超出视窗
+    var labelTop = rect.top - 22;
+    var labelLeft = rect.left;
+
+    // 如果标签会超出顶部，显示在元素下方
+    if (labelTop < 0) {
+      labelTop = rect.bottom + 5;
+    }
+
+    // 如果标签会超出右侧，向左调整
+    if (labelLeft + tagLabel.offsetWidth > window.innerWidth) {
+      labelLeft = window.innerWidth - tagLabel.offsetWidth - 5;
+    }
+    tagLabel.style.left = "".concat(Math.max(0, labelLeft), "px");
+    tagLabel.style.top = "".concat(labelTop, "px");
+
+    // 发送消息到父窗口
+    var elementInfo = {
+      tagName: target.tagName.toLowerCase(),
+      rect: {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+        x: rect.x,
+        y: rect.y
+      },
+      selector: selector,
+      text: text,
+      attributes: attributes,
+      url: window.location.href,
+      path: window.location.pathname,
+      timestamp: Date.now()
+    };
+    try {
+      window.parent.postMessage({
+        type: "iframe-element-hover",
+        data: elementInfo,
+        source: "iframe-highlight-injector"
+      }, "*");
+    } catch (error) {
+      console.warn("无法发送消息到父窗口:", error);
+    }
+  }
+
+  // 鼠标离开事件处理
+  function handleMouseOut(e) {
+    if (!highlightEnabled) return;
+    var relatedTarget = e.relatedTarget;
+
+    // 如果鼠标移动到高亮相关元素上，不隐藏高亮
+    if (relatedTarget && (relatedTarget === highlightBox || relatedTarget === tagLabel || relatedTarget === overlay || relatedTarget === selectedBox || relatedTarget === selectedLabel)) {
+      return;
+    }
+    highlightBox.style.display = "none";
+    tagLabel.style.display = "none";
+    try {
+      window.parent.postMessage({
+        type: "iframe-element-hover",
+        data: null,
+        source: "iframe-highlight-injector"
+      }, "*");
+    } catch (error) {
+      console.warn("无法发送消息到父窗口:", error);
+    }
+  }
+
+  // 点击事件处理
+  function handleClick(e) {
+    var target = e.target;
+    if (!target || target === overlay || target === highlightBox || target === tagLabel || target === selectedBox || target === selectedLabel) {
+      return;
+    }
+
+    // 避免处理 html 和 body 元素
+    if (target === document.documentElement || target === document.body) {
+      return;
+    }
+
+    // 检查是否是交互元素，这些元素需要保留默认行为
+    var isInteractiveElement = ['input', 'textarea', 'select', 'button', 'a'].includes(target.tagName.toLowerCase());
+
+    // 如果高亮功能启用，对于非交互元素阻止默认行为和事件传播
+    if (highlightEnabled) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    var rect = target.getBoundingClientRect();
+    var selector = getElementSelector(target);
+    var text = getElementText(target);
+    var attributes = getElementAttributes(target);
+    console.log("Element clicked:", {
+      tagName: target.tagName,
+      selector: selector,
+      rect: rect
+    });
+
+    // 立即更新选中高亮
+    updateSelectedHighlight(target);
+
+    // 隐藏悬停高亮，因为现在是选中状态
+    highlightBox.style.display = "none";
+    tagLabel.style.display = "none";
+    var elementInfo = {
+      tagName: target.tagName.toLowerCase(),
+      rect: {
+        left: rect.left,
+        top: rect.top,
+        right: rect.right,
+        bottom: rect.bottom,
+        width: rect.width,
+        height: rect.height,
+        x: rect.x,
+        y: rect.y
+      },
+      selector: selector,
+      text: text,
+      attributes: attributes,
+      url: window.location.href,
+      path: window.location.pathname,
+      timestamp: Date.now()
+    };
+    try {
+      window.parent.postMessage({
+        type: "iframe-element-click",
+        data: elementInfo,
+        source: "iframe-highlight-injector"
+      }, "*");
+    } catch (error) {
+      console.warn("无法发送消息到父窗口:", error);
+    }
+  }
+
+  // 监听来自父窗口的消息
+  function handleParentMessage(event) {
+    console.log("Received message from parent:", event.data);
+    if (event.data.type === "iframe-highlight-toggle") {
+      var enabled = event.data.enabled;
+      console.log("Highlight toggle:", enabled);
+      if (enabled) {
+        enableHighlight();
+      } else {
+        disableHighlight();
+      }
+    } else if (event.data.type === "enable-iframe-highlight") {
+      console.log("Enable iframe highlight");
+      enableHighlight();
+    } else if (event.data.type === "disable-iframe-highlight") {
+      console.log("Disable iframe highlight");
+      disableHighlight();
+    } else if (event.data.type === "toggle-iframe-highlight") {
+      var _enabled = event.data.enabled !== undefined ? event.data.enabled : !highlightEnabled;
+      console.log("Toggle iframe highlight to:", _enabled);
+      if (_enabled) {
+        enableHighlight();
+      } else {
+        disableHighlight();
+      }
+    } else if (event.data.type === "update-selected-element") {
+      var selector = event.data.selector;
+      console.log("Update selected element with selector:", selector);
+      if (selector) {
+        try {
+          var element = document.querySelector(selector);
+          console.log("Found element by selector:", element);
+          updateSelectedHighlight(element);
+        } catch (error) {
+          console.warn("Failed to select element:", error);
+          updateSelectedHighlight(null);
+        }
+      } else {
+        updateSelectedHighlight(null);
+      }
+    } else if (event.data.type === "clear-selected-element") {
+      console.log("Clear selected element");
+      updateSelectedHighlight(null);
+    }
+  }
+
+  // 启用高亮功能
+  function enableHighlight() {
+    console.log("Enabling highlight");
+    document.addEventListener("mouseover", handleMouseOver, true);
+    document.addEventListener("mouseout", handleMouseOut, true);
+    document.addEventListener("click", handleClick, true);
+    highlightEnabled = true;
+    overlay.style.display = "block";
+  }
+
+  // 禁用高亮功能
+  function disableHighlight() {
+    console.log("Disabling highlight");
+    highlightEnabled = false;
+    // 保持事件监听器，但通过 highlightEnabled 变量控制行为
+    // 这样可以保留选中状态的显示
+    highlightBox.style.display = "none";
+    tagLabel.style.display = "none";
+    // 不隐藏 selectedBox 和 selectedLabel，保留选中状态
+  }
+
+  // 完全禁用高亮功能（移除所有监听器）
+  function fullyDisableHighlight() {
+    console.log("Fully disabling highlight");
+    highlightEnabled = false;
+    document.removeEventListener("mouseover", handleMouseOver, true);
+    document.removeEventListener("mouseout", handleMouseOut, true);
+    document.removeEventListener("click", handleClick, true);
+    overlay.style.display = "none";
+    highlightBox.style.display = "none";
+    tagLabel.style.display = "none";
+    selectedBox.style.display = "none";
+    selectedLabel.style.display = "none";
+  }
+
+  // 添加事件监听
+  enableHighlight();
+  window.addEventListener("message", handleParentMessage);
+
+  // 暴露全局函数供外部调用
+  window.__iframeHighlightControl = {
+    enable: enableHighlight,
+    disable: disableHighlight,
+    fullyDisable: fullyDisableHighlight,
+    isEnabled: function isEnabled() {
+      return highlightEnabled;
+    },
+    getSelectedElement: function getSelectedElement() {
+      return selectedElement;
+    },
+    updateSelected: updateSelectedHighlight,
+    // 通过消息发送开关控制
+    sendToggleMessage: function sendToggleMessage(enabled) {
+      window.parent.postMessage({
+        type: 'iframe-highlight-status',
+        enabled: enabled || highlightEnabled,
+        source: 'iframe-highlight-injector'
+      }, '*');
+    }
+  };
+
+  // 通知父窗口脚本已加载
+  try {
+    window.parent.postMessage({
+      type: "iframe-highlight-ready",
+      data: {
+        url: window.location.href,
+        userAgent: navigator.userAgent,
+        timestamp: Date.now()
+      },
+      source: "iframe-highlight-injector"
+    }, "*");
+  } catch (error) {
+    console.warn("无法发送就绪消息到父窗口:", error);
+  }
+
+  // 清理函数
+  window.__iframeHighlightCleanup = function () {
+    fullyDisableHighlight();
+    window.removeEventListener("message", handleParentMessage);
+    if (overlay.parentElement) {
+      overlay.parentElement.removeChild(overlay);
+    }
+    delete window.__iframeHighlightInitialized;
+    delete window.__iframeHighlightCleanup;
+  };
+})();
+
+</script>
+<style>
+#minimax-floating-ball {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 10px 12px;
+  background: #222222;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  color: #F8F8F8;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  z-index: 9999;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+#minimax-floating-ball:hover {
+  transform: translateY(-2px);
+  background: #383838;
+}
+.minimax-ball-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.minimax-logo-wave {
+  width: 20px;
+  height: 20px;
+  background-image: url("data:image/svg+xml,%3Csvg%20preserveAspectRatio%3D%27none%27%20width%3D%27100%25%27%20height%3D%27100%25%27%20overflow%3D%27visible%27%20style%3D%27display%3A%20block%3B%27%20viewBox%3D%270%200%20170.136%20138.225%27%20fill%3D%27none%27%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%3E%3Cg%20id%3D%27Frame%202116748449%27%3E%3Cpath%20id%3D%27Subtract%27%20d%3D%27M170%20101.783C170%20105.144%20168.49%20108.327%20165.886%20110.453L134.963%20135.702C132.964%20137.334%20130.463%20138.225%20127.883%20138.225H10.4938C4.69824%20138.225%200%20133.527%200%20127.732V39.2289C0%2035.8597%201.51758%2032.6698%204.13162%2030.5442L38.5402%202.56547C40.536%200.942662%2043.0298%200.0567377%2045.602%200.0567377H159.506C165.302%200.0567377%20170%204.75498%20170%2010.5506V101.783Z%27%20fill%3D%27black%27%20style%3D%27fill%3Ablack%3Bfill-opacity%3A1%3B%27/%3E%3Cpath%20id%3D%27Subtract_2%27%20d%3D%27M149.011%2094.4632C149.011%2096.1471%20148.253%2097.7415%20146.946%2098.8043L125.893%20115.936C124.895%20116.748%20123.648%20117.191%20122.361%20117.191H24.6479C22.716%20117.191%2021.15%20115.625%2021.15%20113.693V46.1166C21.15%2044.4267%2021.9135%2042.8274%2023.2274%2041.7648L47.367%2022.2437C48.3638%2021.4376%2049.607%2020.9982%2050.8888%2020.9988L145.514%2021.0427C147.446%2021.0436%20149.011%2022.6094%20149.011%2024.5406V94.4632Z%27%20fill%3D%27white%27%20style%3D%27fill%3Awhite%3Bfill-opacity%3A1%3B%27/%3E%3Cpath%20id%3D%27Rectangle%20111142564%27%20d%3D%27M42.111%2080.8025C42.111%2077.7115%2044.6167%2075.2057%2047.7077%2075.2057H60.9999C64.0908%2075.2057%2066.5966%2077.7115%2066.5966%2080.8025V121.029H42.111V80.8025Z%27%20fill%3D%27black%27%20style%3D%27fill%3Ablack%3Bfill-opacity%3A1%3B%27/%3E%3Cpath%20id%3D%27Rectangle%20111142567%27%20d%3D%27M79.1894%2080.8025C79.1894%2077.7115%2081.6952%2075.2057%2084.7861%2075.2057H98.0783C101.169%2075.2057%20103.675%2077.7115%20103.675%2080.8025V121.029H79.1894V80.8025Z%27%20fill%3D%27black%27%20style%3D%27fill%3Ablack%3Bfill-opacity%3A1%3B%27/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px 11px;
+  background-color: #8FD1FF;
+  border-radius: 4px;
+}
+
+.minimax-ball-text {
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.minimax-close-icon {
+  margin-left: 8px;
+  font-size: 16px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.minimax-close-icon:hover {
+  opacity: 1;
+}
+</style>
+<div id="minimax-floating-ball">
+  <div class="minimax-ball-content">
+    <div class="minimax-logo-wave"></div>
+    <span class="minimax-ball-text">Created by MiniMax Agent</span>
+  </div>
+  <div class="minimax-close-icon">×</div>
+</div>
+<script>
+// Initialize floating ball functionality
+function initFloatingBall() {
+  const ball = document.getElementById('minimax-floating-ball');
+  if (!ball) return;
+
+  // Initial animation
+  ball.style.opacity = '0';
+  ball.style.transform = 'translateY(20px)';
+
+  setTimeout(() => {
+    ball.style.opacity = '1';
+    ball.style.transform = 'translateY(0)';
+  }, 500);
+
+  // Handle logo click
+  const ballContent = ball.querySelector('.minimax-ball-content');
+  ballContent.addEventListener('click', function (e) {
+    e.stopPropagation();
+    window.open('https://agent.minimax.io/', '_blank');
+    ball.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      ball.style.transform = 'scale(1)';
+    }, 100);
+  });
+
+  // Handle close button click
+  const closeIcon = ball.querySelector('.minimax-close-icon');
+  closeIcon.addEventListener('click', function (e) {
+    e.stopPropagation();
+    ball.style.opacity = '0';
+    ball.style.transform = 'translateY(20px)';
+
+    setTimeout(() => {
+      ball.style.display = 'none';
+    }, 300);
+  });
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initFloatingBall); 
 </script>
 </body>
 </html>
