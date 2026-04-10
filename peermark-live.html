@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PeerMark</title>
-<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -212,6 +212,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 .member-chip{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:0.15rem 0.55rem;font-size:0.75rem;color:var(--text2);font-family:'JetBrains Mono',monospace;display:inline-block;margin:0.2rem}
 .member-chip.done{border-color:rgba(62,207,142,0.3);color:var(--green);background:rgba(62,207,142,0.08)}
 .member-chip.failed{border-color:rgba(240,82,82,0.3);color:var(--red);background:rgba(240,82,82,0.08)}
+
+/* MODE TOGGLE */
+.mode-toggle{display:flex;align-items:center;gap:0.5rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:0.25rem 0.5rem}
+.mode-toggle-label{font-size:0.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em}
+.mode-toggle select{background:transparent;border:none;color:var(--text);font-size:0.82rem;font-family:'Instrument Sans',sans-serif;cursor:pointer;outline:none;padding:0.25rem 0.5rem}
+.mode-toggle select option{background:var(--surface2)}
+
+/* ASSIGNMENT LINK */
+.assignment-link-box{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
+.assignment-link-box input{background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:0.4rem 0.75rem;font-family:'JetBrains Mono',monospace;font-size:0.82rem;color:var(--text);flex:1;min-width:200px}
+.copy-btn{background:var(--accent);color:white;border:none;border-radius:4px;padding:0.4rem 0.85rem;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:'Instrument Sans',sans-serif;transition:all 0.15s}
+.copy-btn:hover{background:var(--accent2)}
 </style>
 </head>
 <body>
@@ -239,11 +251,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div class="frow"><label>Submission deadline</label><input type="date" id="m-sub"></div>
       <div class="frow"><label>Marking deadline</label><input type="date" id="m-mark"></div>
     </div>
-    <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="10">0–10</option><option value="20" selected>0–20</option><option value="100">0–100</option></select></div>
-    <div class="frow"><label>Anonymous peer marking?</label><select id="m-anon"><option value="1">Yes — hide student names</option><option value="0">No — show names</option></select></div>
+    <div class="grid2">
+      <div class="frow"><label>Max score per criterion</label><select id="m-scale"><option value="1" selected>1 (Yes/No)</option></select></div>
+      <div class="frow"><label>Anonymous peer marking?</label><select id="m-anon"><option value="1">Yes — hide student names</option><option value="0">No — show names</option></select></div>
+    </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-new')">Cancel</button>
       <button class="btn btn-primary" id="btn-create-assignment" onclick="createAssignment()">Create →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit Criteria -->
+<div class="overlay" id="modal-edit-criteria">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-head"><h2>Edit Marking Criteria</h2><button class="modal-close" onclick="closeModal('modal-edit-criteria')">✕</button></div>
+    <p style="color:var(--text2);font-size:0.85rem;margin-bottom:1.25rem">Define the marking criteria for this assignment. Weights must sum to 100%.</p>
+    <div id="edit-criteria-editor"></div>
+    <button class="btn btn-ghost btn-sm" onclick="addEditCriterion()" style="margin-top:0.75rem">+ Add criterion</button>
+    <div id="edit-weight-warning" style="display:none;color:var(--amber);font-size:0.82rem;margin-top:0.75rem"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-criteria')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditCriteria()">Save to SharePoint</button>
     </div>
   </div>
 </div>
@@ -280,8 +309,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <div class="nav-tab" onclick="nav('marking')">Marking</div>
     <div class="nav-tab hidden" onclick="nav('moderation')" id="tab-moderation">Moderation</div>
     <div class="nav-tab hidden" onclick="nav('results')" id="tab-results">Results</div>
+    <div class="nav-tab" onclick="nav('help')">Help</div>
   </div>
   <div class="nav-right">
+    <div id="mode-toggle-container" style="display:none" class="mode-toggle">
+      <span class="mode-toggle-label">Mode:</span>
+      <select id="mode-select" onchange="switchMode(this.value)">
+        <option value="instructor">Instructor</option>
+        <option value="student">Student</option>
+      </select>
+    </div>
     <div class="user-chip">
       <div class="user-avatar" id="user-avatar">?</div>
       <span id="user-name">Loading…</span>
@@ -297,12 +334,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
 <div class="page active" id="page-dashboard">
   <div class="page-head">
     <div><h1>Dashboard</h1><p class="sub" id="dash-sub">Loading…</p></div>
-    <div style="display:flex;gap:0.75rem" id="dash-instructor-actions" style="display:none">
-      <button class="btn btn-ghost" onclick="openCriteriaModal()">Edit Criteria</button>
+    <div id="dash-instructor-actions" style="display:none;gap:0.75rem">
+      <button class="btn btn-ghost" onclick="openEditCriteriaModal()">Edit Criteria</button>
       <button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>
     </div>
   </div>
   <div id="dash-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
+  <div id="assignment-link-container" style="display:none;margin-top:1.5rem"></div>
 </div>
 
 <!-- GROUPS -->
@@ -361,6 +399,174 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div id="results-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
 </div>
 
+
+<!-- HELP -->
+<div class="page" id="page-help">
+  <div class="page-head">
+    <div><h1>Help &amp; Guide</h1><p class="sub">How to use PeerMark</p></div>
+  </div>
+
+  <!-- PURPOSE -->
+  <div class="card" style="margin-bottom:1.5rem;border-color:rgba(79,142,247,0.3)">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="font-size:2rem;flex-shrink:0">🎓</div>
+      <div>
+        <h2 style="margin-bottom:0.6rem">What is PeerMark?</h2>
+        <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">PeerMark is a peer assessment tool for university modules. It allows students to mark each other's work within assigned groups and receive a collated mark from their peers.</p>
+        <p style="color:var(--text2);line-height:1.7;margin-bottom:0.75rem">Students are organised into groups. Every student marks every other student in their group — if a group has 4 members, each student submits 3 reviews. The final mark is the average of all valid peer scores received.</p>
+        <div style="background:rgba(240,82,82,0.08);border:1px solid rgba(240,82,82,0.2);border-radius:6px;padding:0.85rem 1rem;font-size:0.88rem;color:var(--text2)">
+          ⚠ <strong style="color:var(--red)">Important policy:</strong> If a student does not complete <em>all</em> of their peer reviews before the marking deadline, their own mark is <strong>zero</strong> and their submitted reviews are discarded from their peers' averages. There are no exceptions — partial submissions are treated the same as no submission.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INSTRUCTOR GUIDE -->
+  <div id="help-instructor-section">
+    <h3 style="margin-bottom:1rem">Instructor Workflow</h3>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">1</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Create an assignment</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">On the Dashboard, click <strong>+ New Assignment</strong>. Enter the title, module code, submission deadline, marking deadline, max score per criterion, and whether marking should be anonymous. This creates a record in SharePoint.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">2</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Set marking criteria</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Click <strong>Edit Criteria</strong> on the Dashboard. Add criteria (e.g. "Critical Thinking", "Academic Writing"), give each a description and a percentage weight. Weights must sum to exactly 100%. Click <strong>Save to SharePoint</strong> when done.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">3</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Import students and groups</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Groups</strong> tab. Export your groups from Moodle as a CSV, or prepare a CSV with four columns: <code style="color:var(--accent)">student_id, name, email, group</code>. Click <strong>Import CSV</strong>. Each unique value in the group column becomes a group. The email must match the student's university Microsoft account.</p>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6;margin-top:0.5rem">Download the <strong>Sample CSV</strong> to see the expected format.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">4</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Share the link with students</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Share the PeerMark URL with your students: <code style="color:var(--accent);word-break:break-all">https://jonathanongithub.github.io/peermark/</code>. Students sign in with their university Microsoft account. They will automatically see the student view and their assigned peers to review.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--amber);color:#1a1200;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">5</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Monitor progress</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">The <strong>Marking</strong> tab shows real-time progress per group and flags any students who have not yet completed their reviews. The <strong>Groups</strong> tab shows individual member status.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--amber);color:#1a1200;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">6</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Moderate marks after the deadline</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Moderation</strong> tab. Students who did not complete all reviews are automatically flagged — their score will be zero and their submitted reviews are excluded from peers' averages. You can apply an <strong>Override</strong> to any student's mark if needed (enter a number in the override box next to their name). Click <strong>Detail</strong> to see all individual peer scores and feedback for any student.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:2rem">
+      <div style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">7</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:0.4rem">Release results</div>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">When you are satisfied with the marks, click <strong>Release Results to Students</strong> in the Moderation tab. This calculates final marks, writes them to SharePoint, and immediately makes them visible to students on their Results page. You can also export a CSV from the Results tab for uploading to Moodle's gradebook.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STUDENT GUIDE -->
+  <h3 style="margin-bottom:1rem">Student Workflow</h3>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">1</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Sign in</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Visit the PeerMark link provided by your instructor and sign in with your university Microsoft account. You will automatically see the student view — no separate registration is needed.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">2</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Review your peers</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Go to the <strong>Marking</strong> tab. You will see one card for each person in your group. For each peer, select Yes or No for each criterion. Click <strong>Submit review</strong> when done. You can complete reviews in any order and across multiple sessions — your progress is saved to SharePoint each time you submit.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">3</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">Complete all reviews before the deadline</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">You must submit a review for <em>every</em> member of your group before the marking deadline. The Dashboard shows your progress and the deadline. If you do not complete all reviews in time, your own mark will be <strong style="color:var(--red)">zero</strong> with no exceptions.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:2rem">
+    <div style="display:flex;gap:1rem;align-items:flex-start">
+      <div style="background:var(--green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">4</div>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.4rem">View your results</div>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Once your instructor has released results, go to the <strong>Results</strong> tab. You will see your final mark, a breakdown by criterion, and the scores from each peer reviewer (shown anonymously if the instructor has enabled anonymous marking).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <h3 style="margin-bottom:1rem">Common Questions</h3>
+  <div class="card">
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">I submitted some reviews but not all — will my partial reviews count?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">No. If you do not complete every review in your group, all of your submitted reviews are discarded entirely and your own mark is zero. There is no partial credit for partial submission.</p>
+    </div>
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">Can I change a review after submitting it?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Not currently — once a review is submitted it is written to SharePoint and cannot be edited by the student. Contact your instructor if you need a correction.</p>
+    </div>
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">Will my peers know what score I gave them?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">If the instructor has enabled anonymous marking, peer names are hidden during the marking process and individual reviewers are shown only as "Peer 1", "Peer 2" etc. on the results page. The instructor can always see who submitted what.</p>
+    </div>
+    <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;margin-bottom:0.35rem">How is my final mark calculated?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Your final mark is the simple average of the weighted scores given by all valid peer reviewers in your group. Each reviewer scores you on each criterion separately; the scores are combined using the criterion weights set by your instructor. The instructor may adjust individual marks before releasing results.</p>
+    </div>
+    <div>
+      <div style="font-weight:600;margin-bottom:0.35rem">Where is my data stored?</div>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">All data — group assignments, peer scores, and feedback — is stored in SharePoint Lists within the University of Nottingham's Microsoft 365 tenancy. Data does not leave the university's infrastructure. Authentication uses your existing university Microsoft account.</p>
+    </div>
+  </div>
+
+</div>
+
 </div><!-- /wrap -->
 
 <script>
@@ -371,7 +577,7 @@ const CONFIG = {
   clientId:  "c75873c8-bc64-402b-9863-45966f1a7514",
   tenantId:  "67bda7ee-fd80-41ef-ac91-358418290a1e",
   siteId:    "uniofnottm.sharepoint.com,9ce01f9b-876f-4fec-92f6-002af6ffdab2,5408bd4e-bd2b-4a08-9f41-d51703f2c177",
-  redirectUri: "https://uniofnottm.sharepoint.com/:u:/r/sites/Jonathan/Shared%20Documents/General/peermark.html",
+  redirectUri: "https://jonathanongithub.github.io/peermark/",
   lists: {
     assignments: "0dacb4e5-1e00-487c-9b0a-fdfc42794318",
     groups:      "df47b0ff-365d-4645-ac2d-c19d02481aa4",
@@ -381,8 +587,24 @@ const CONFIG = {
     results:     "edc6519e-10f6-476c-b8ba-5fce462ff4b3"
   },
   // Instructor emails — add yours and any colleagues here
-  instructors: ["jonathan.burley@nottingham.ac.uk"]
+  instructors: [
+    "jonathan.burley@nottingham.ac.uk"
+    // Add more instructor emails here
+  ]
 };
+
+const QUESTIONS = [
+  "X attended all team meetings (or had a valid reason not to attend).",
+  "X attended all team meetings well prepared.",
+  "X completed assigned tasks on time.",
+  "X produced work that was of suitable quality.",
+  "X contributed to ideas.",
+  "X communicated well with other team members.",
+  "X was respectful to other team members.",
+  "X was open to ideas from other team members.",
+  "X gave constructive feedback.",
+  "X took on a leadership role."
+];
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 const SCOPES = ["https://graph.microsoft.com/Sites.ReadWrite.All"];
@@ -400,8 +622,10 @@ const msalInstance = new msal.PublicClientApplication({
 });
 
 let currentUser = null;   // { name, email, isInstructor }
+let effectiveRole = 'instructor'; // 'instructor' or 'student' (for instructor testing mode)
 let appState = {
   assignment: null,       // current assignment object from SharePoint
+  assignmentUUID: null,   // UUID for this assignment instance (stored in localStorage)
   criteria: [],           // criteria rows
   groups: [],             // group rows
   students: [],           // student rows
@@ -415,6 +639,27 @@ let appState = {
 // =====================================================
 // AUTH
 // =====================================================
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function getAssignmentIdFromURL() {
+  const hash = window.location.hash;
+  const match = hash.match(/\/([a-f0-9-]{36})/i);
+  return match ? match[1] : null;
+}
+
+function switchMode(mode) {
+  effectiveRole = mode;
+  renderDashboard();
+  if (mode === 'student') {
+    renderMarkingStudent();
+  }
+}
+
 async function init() {
   try {
     setLoading("Handling sign-in…");
@@ -428,14 +673,37 @@ async function init() {
     }
 
     const account = accounts[0];
-    const email = account.username.toLowerCase();
-    const isInstructor = CONFIG.instructors.includes(email);
+    const email = account.username.toLowerCase().trim();
+
+    // Case-insensitive instructor check
+    const isInstructor = CONFIG.instructors.some(i => i.toLowerCase().trim() === email);
+
+    // Debug: log email comparison
+    console.log('=== PEERMARK DEBUG ===');
+    console.log('Login email:', email);
+    console.log('Configured instructors:', CONFIG.instructors);
+    console.log('Match result:', isInstructor);
 
     currentUser = {
       name: account.name || email,
       email,
       isInstructor
     };
+
+    // Debug: log user object
+    console.log('User object:', currentUser);
+    console.log('effectiveRole:', effectiveRole);
+
+    // Show mode toggle for instructors
+    if (isInstructor) {
+      document.getElementById('mode-toggle-container').style.display = 'flex';
+      // Default to instructor mode
+      effectiveRole = 'instructor';
+      document.getElementById('mode-select').value = effectiveRole;
+    } else {
+      // Regular students - always student mode
+      effectiveRole = 'student';
+    }
 
     // Update nav user chip
     document.getElementById('user-name').textContent = currentUser.name.split(' ')[0];
@@ -447,7 +715,6 @@ async function init() {
     if (isInstructor) {
       document.getElementById('tab-moderation').classList.remove('hidden');
       document.getElementById('tab-results').classList.remove('hidden');
-      document.getElementById('dash-instructor-actions').style.display = 'flex';
     } else {
       document.getElementById('tab-groups').classList.add('hidden');
       document.getElementById('tab-results').classList.remove('hidden');
@@ -456,8 +723,15 @@ async function init() {
     document.getElementById('main-nav').style.display = 'flex';
     hideLoading();
 
-    // Load initial data
-    await loadApp();
+    // Check for assignment UUID in URL
+    const urlAssignmentId = getAssignmentIdFromURL();
+    if (urlAssignmentId) {
+      // Load specific assignment by UUID
+      await loadAppWithUUID(urlAssignmentId);
+    } else {
+      // Load default (most recent) assignment
+      await loadApp();
+    }
 
   } catch (err) {
     console.error(err);
@@ -477,6 +751,15 @@ async function getToken() {
 
 function signOut() {
   msalInstance.logoutRedirect();
+}
+
+// Role checking helper
+function isInstructorMode() {
+  return currentUser && currentUser.isInstructor && effectiveRole === 'instructor';
+}
+
+function isStudentMode() {
+  return !currentUser.isInstructor || effectiveRole === 'student';
 }
 
 // =====================================================
@@ -524,14 +807,35 @@ async function loadApp() {
   setLoading("Loading assignment…");
   try {
     // Load the most recent assignment
-    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/Created desc&$top=1'));
+    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$top=10'));
     if (items.length > 0) {
       appState.assignment = { id: items[0].id, ...items[0].fields };
+
+      // Check if UUID already exists in SharePoint
+      if (appState.assignment.PM_UUID) {
+        appState.assignmentUUID = appState.assignment.PM_UUID;
+        console.log('Loaded UUID from SharePoint:', appState.assignmentUUID);
+      } else {
+        // Generate UUID and save to SharePoint
+        appState.assignmentUUID = generateUUID();
+        try {
+          await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
+            fields: { PM_UUID: appState.assignmentUUID }
+          });
+          console.log('Generated and saved UUID to SharePoint:', appState.assignmentUUID);
+        } catch (e) {
+          // Field might not exist in SharePoint - just use localStorage
+          console.log('UUID field not in SharePoint, using localStorage:', appState.assignmentUUID);
+          localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
+        }
+      }
+      // Also save to localStorage for backup
+      localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
     }
 
     // Load criteria
     if (appState.assignment) {
-      const cItems = await graphGetAll(listPath('criteria', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'&$orderby=fields/SortOrder`));
+      const cItems = (await graphGetAll(listPath('criteria', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
       appState.criteria = cItems.map(i => ({ id: i.id, ...i.fields }));
     }
 
@@ -541,7 +845,7 @@ async function loadApp() {
     // Load groups and students in background
     if (appState.assignment) {
       await loadGroupsAndStudents();
-      if (!currentUser.isInstructor) await loadMyData();
+      if (isStudentMode()) await loadMyData();
     }
 
   } catch (err) {
@@ -551,19 +855,75 @@ async function loadApp() {
   }
 }
 
+async function loadAppWithUUID(uuid) {
+  setLoading("Loading assignment…");
+  try {
+    // Load all assignments and find by PM_UUID field
+    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/CreatedAt desc&$top=100'));
+    const assignment = items.find(i => i.fields.PM_UUID === uuid);
+
+    if (assignment) {
+      appState.assignment = { id: assignment.id, ...assignment.fields };
+      appState.assignmentUUID = uuid;
+      // Save to localStorage as backup
+      localStorage.setItem('pm_uuid_' + appState.assignment.id, uuid);
+      localStorage.setItem('pm_aid_' + uuid, appState.assignment.id);
+    } else {
+      // UUID not found - fall back to most recent
+      showToast('Assignment not found. Loading default.', 'warn');
+      await loadApp();
+      return;
+    }
+
+    // Load criteria
+    if (appState.assignment) {
+      const cItems = (await graphGetAll(listPath('criteria', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
+      appState.criteria = cItems.map(i => ({ id: i.id, ...i.fields }));
+    }
+
+    hideLoading();
+    renderDashboard();
+
+    // Load groups and students - always for instructor view
+    if (appState.assignment) {
+      await loadGroupsAndStudents();
+      if (isStudentMode()) await loadMyData();
+    }
+
+    // Refresh dashboard to show assignment link
+    renderDashboard();
+
+  } catch (err) {
+    hideLoading();
+    showToast('Error loading data: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
 async function loadGroupsAndStudents() {
+  console.log('=== Loading Groups & Students ===');
+  console.log('Current assignment ID:', appState.assignment?.id);
+
   const [gItems, sItems] = await Promise.all([
-    graphGetAll(listPath('groups', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`)),
-    graphGetAll(listPath('students', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`))
+    graphGetAll(listPath('groups', '?$expand=fields')),
+    graphGetAll(listPath('students', '?$expand=fields'))
   ]);
-  appState.groups = gItems.map(i => ({ id: i.id, ...i.fields }));
-  appState.students = sItems.map(i => ({ id: i.id, ...i.fields }));
+
+  console.log('All groups from SharePoint:', gItems.length);
+  console.log('All students from SharePoint:', sItems.length);
+
+  appState.groups = gItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
+  appState.students = sItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
+
+  console.log('Filtered groups:', appState.groups.length);
+  console.log('Filtered students:', appState.students.length);
+
   renderDashboard();
 }
 
 async function loadMyData() {
   const email = currentUser.email;
-  const sItems = await graphGetAll(listPath('students', `?$expand=fields&$filter=fields/Email eq '${email}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+  const sItems = (await graphGetAll(listPath('students', '?$expand=fields'))).filter(i => i.fields.Email?.toLowerCase() == email && i.fields.AssignmentId == appState.assignment.id);
   if (sItems.length === 0) {
     appState.myStudent = null;
     return;
@@ -577,7 +937,7 @@ async function loadMyData() {
   );
 
   // Load my submitted reviews
-  const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/ReviewerEmail eq '${email}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+  const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.ReviewerEmail?.toLowerCase() == email && i.fields.AssignmentId == appState.assignment.id);
   appState.myReviews = rItems.map(i => ({ id: i.id, ...i.fields }));
 }
 
@@ -588,7 +948,7 @@ function nav(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
-  const pages = ['dashboard','groups','marking','moderation','results'];
+  const pages = ['dashboard','groups','marking','moderation','results','help'];
   const tabs = document.querySelectorAll('.nav-tab');
   const idx = pages.indexOf(page);
   if (idx >= 0) tabs[idx].classList.add('active');
@@ -598,7 +958,8 @@ function nav(page) {
     groups: renderGroups,
     marking: renderMarking,
     moderation: renderModeration,
-    results: renderResults
+    results: renderResults,
+    help: renderHelp
   };
   if (renders[page]) renders[page]();
 }
@@ -633,7 +994,18 @@ function closeModal(id) { document.getElementById(id).classList.remove('show') }
 // =====================================================
 function renderDashboard() {
   const a = appState.assignment;
-  const isInstructor = currentUser.isInstructor;
+  const isInstructor = isInstructorMode();
+  const canSeeInstructorActions = currentUser && currentUser.isInstructor && effectiveRole === 'instructor';
+
+  // Show/hide instructor actions on dashboard - only in instructor mode
+  if (canSeeInstructorActions) {
+    document.getElementById('dash-instructor-actions').style.display = 'flex';
+  } else {
+    document.getElementById('dash-instructor-actions').style.display = 'none';
+  }
+
+  // Show assignment link for instructors
+  renderAssignmentLink();
 
   if (!a) {
     document.getElementById('dash-sub').textContent = 'No assignments yet';
@@ -642,7 +1014,7 @@ function renderDashboard() {
         <div style="font-size:2.5rem;margin-bottom:1rem;opacity:0.3">📋</div>
         <h2 style="margin-bottom:0.5rem">No assignments yet</h2>
         <p style="color:var(--text2);font-size:0.9rem;margin-bottom:1.5rem">Create your first peer marking assignment to get started.</p>
-        ${isInstructor ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>` : ''}
+        ${canSeeInstructorActions ? `<button class="btn btn-primary" onclick="openModal('modal-new')">+ New Assignment</button>` : ''}
       </div>`;
     return;
   }
@@ -692,7 +1064,7 @@ function renderDashboard() {
         </div>
       </div>`;
   } else {
-    // Student dashboard
+    // Student dashboard (or instructor in student mode)
     const ms = appState.myStudent;
     if (!ms) {
       document.getElementById('dash-content').innerHTML = `<div class="card"><p style="color:var(--text2)">You are not enrolled in this assignment. Please contact your module coordinator.</p></div>`;
@@ -725,11 +1097,45 @@ function renderDashboard() {
   }
 }
 
+function renderAssignmentLink() {
+  const container = document.getElementById('assignment-link-container');
+  if (!appState.assignment || !currentUser || !currentUser.isInstructor || effectiveRole !== 'instructor') {
+    container.style.display = 'none';
+    return;
+  }
+
+  const baseUrl = window.location.origin + window.location.pathname;
+  const assignmentUrl = baseUrl + '#/assignment/' + appState.assignmentUUID;
+
+  container.innerHTML = `
+    <div class="assignment-link-box">
+      <div style="flex:1">
+        <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text3);margin-bottom:0.4rem">Student Access Link</div>
+        <div style="font-size:0.82rem;color:var(--text2);margin-bottom:0.5rem">Share this link with students to access this assignment:</div>
+        <input type="text" id="assignment-link-input" value="${assignmentUrl}" readonly onclick="this.select()">
+      </div>
+      <button class="copy-btn" onclick="copyAssignmentLink()">Copy Link</button>
+    </div>`;
+  container.style.display = 'block';
+}
+
+function copyAssignmentLink() {
+  const input = document.getElementById('assignment-link-input');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast('✓ Link copied to clipboard');
+  }).catch(() => {
+    // Fallback for older browsers
+    document.execCommand('copy');
+    showToast('✓ Link copied to clipboard');
+  });
+}
+
 // =====================================================
 // GROUPS — IMPORT CSV
 // =====================================================
 function renderGroups() {
-  if (!currentUser.isInstructor) {
+  if (!isInstructorMode()) {
     document.getElementById('groups-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Groups management is instructor-only.</div></div>`;
     return;
   }
@@ -766,6 +1172,10 @@ function downloadSampleCSV() {
 async function importCSV(e) {
   const file = e.target.files[0];
   if (!file || !appState.assignment) return;
+  if (!isInstructorMode()) {
+    showToast('Only instructors can import students', 'error');
+    return;
+  }
   const text = await file.text();
   const lines = text.trim().split('\n');
   const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
@@ -822,7 +1232,7 @@ async function importCSV(e) {
     }
 
     await loadGroupsAndStudents();
-    if (!currentUser.isInstructor) await loadMyData();
+    if (isStudentMode()) await loadMyData();
     hideLoading();
     showToast(`✓ Imported ${rows.length} students across ${groupNames.length} groups`);
     renderGroups();
@@ -839,7 +1249,7 @@ async function importCSV(e) {
 // MARKING
 // =====================================================
 function renderMarking() {
-  if (currentUser.isInstructor) {
+  if (isInstructorMode()) {
     renderMarkingInstructor();
   } else {
     renderMarkingStudent();
@@ -931,8 +1341,8 @@ function renderMarkingStudent() {
     return;
   }
 
-  const scale = parseInt(appState.assignment?.MaxScore || 20);
-  const defaultVal = Math.floor(scale * 0.6);
+  const scale = 1;
+  const defaultVal = 0;
 
   const cards = peers.map(peer => {
     const isDone = reviewed.includes(peer.StudentId);
@@ -950,24 +1360,22 @@ function renderMarkingStudent() {
         <div style="font-weight:600">${displayName}</div>
         <span class="badge badge-amber">Pending</span>
       </div>
-      ${appState.criteria.map((c, i) => `
+      ${QUESTIONS.map((q, i) => {
+        const label = q.replace(/^X/, displayName);
+        return `
         <div class="slider-row">
           <div style="flex:1">
-            <div style="font-weight:500;font-size:0.9rem">${c.Title}</div>
-            <div style="font-size:0.75rem;color:var(--text3)">${c.Description || ''} · ${c.WeightPercent}% weight</div>
+            <div style="font-weight:500;font-size:0.9rem">${label}</div>
           </div>
           <div style="display:flex;align-items:center;gap:0.75rem;width:240px">
-            <input type="range" min="0" max="${scale}" value="${defaultVal}" id="sl-${peer.StudentId}-${i}"
-              oninput="document.getElementById('sv-${peer.StudentId}-${i}').textContent=this.value+'/${scale}'">
-            <div class="slider-val" id="sv-${peer.StudentId}-${i}">${defaultVal}/${scale}</div>
+            <input type="checkbox" id="sl-${peer.StudentId}-${i}" ${defaultVal === 1 ? 'checked' : ''}
+              oninput="document.getElementById('sv-${peer.StudentId}-${i}').textContent=this.checked ? 'Yes' : 'No'">
+            <label for="sl-${peer.StudentId}-${i}" style="cursor:pointer;user-select:none;">Yes</label>
+            <div class="slider-val" id="sv-${peer.StudentId}-${i}">${defaultVal === 1 ? 'Yes' : 'No'}</div>
           </div>
-        </div>`).join('')}
-      <hr>
-      <div class="grid2" style="margin-bottom:0.85rem">
-        <div class="frow"><label>Strengths</label><textarea id="str-${peer.StudentId}" placeholder="What did this submission do well?" rows="3"></textarea></div>
-        <div class="frow"><label>Areas to improve</label><textarea id="imp-${peer.StudentId}" placeholder="What could be improved?" rows="3"></textarea></div>
-      </div>
-      <div style="display:flex;justify-content:flex-end">
+        </div>`;
+      }).join('')}
+      <div style="display:flex;justify-content:flex-end;margin-top:1rem">
         <button class="btn btn-primary" id="submit-btn-${peer.StudentId}" onclick="submitReview('${peer.StudentId}')">Submit review →</button>
       </div>
     </div>`;
@@ -983,13 +1391,12 @@ async function submitReview(revieweeStudentId) {
 
   try {
     const reviewee = appState.myPeers.find(p => p.StudentId === revieweeStudentId);
-    const scale = parseInt(appState.assignment?.MaxScore || 20);
-    const scores = appState.criteria.map((c, i) =>
-      parseInt(document.getElementById(`sl-${revieweeStudentId}-${i}`)?.value || 0)
-    );
-    const weightedScore = appState.criteria.reduce((sum, c, i) =>
-      sum + (scores[i] * c.WeightPercent / 100), 0
-    );
+    const scale = 1;
+    const scores = QUESTIONS.map((_, i) => {
+      const el = document.getElementById(`sl-${revieweeStudentId}-${i}`);
+      return el && el.checked ? 1 : 0;
+    });
+    const weightedScore = (scores.reduce((sum, s) => sum + s, 0) / scores.length / scale) * 100;
 
     // Write review to SharePoint
     await graph('POST', listPath('reviews'), {
@@ -1001,8 +1408,6 @@ async function submitReview(revieweeStudentId) {
         RevieweeStudentId:   revieweeStudentId,
         ScoresJSON:          JSON.stringify(scores),
         WeightedScore:       Math.round(weightedScore * 10) / 10,
-        FeedbackStrengths:   document.getElementById(`str-${revieweeStudentId}`)?.value || '',
-        FeedbackImprove:     document.getElementById(`imp-${revieweeStudentId}`)?.value || '',
         SubmittedAt:         new Date().toISOString(),
         ValidForAggregation: true
       }
@@ -1035,7 +1440,7 @@ async function submitReview(revieweeStudentId) {
 // MODERATION
 // =====================================================
 async function renderModeration() {
-  if (!currentUser.isInstructor) {
+  if (!isInstructorMode()) {
     document.getElementById('moderation-content').innerHTML = `<div class="card"><div class="error-state"><div class="error-icon">🔒</div>Moderation is instructor-only.</div></div>`;
     return;
   }
@@ -1044,11 +1449,11 @@ async function renderModeration() {
 
   try {
     // Load all reviews for this assignment
-    const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+    const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
     appState.reviews = rItems.map(i => ({ id: i.id, ...i.fields }));
 
     // Load existing results if any
-    const resItems = await graphGetAll(listPath('results', `?$expand=fields&$filter=fields/AssignmentId eq '${appState.assignment.id}'`));
+    const resItems = (await graphGetAll(listPath('results', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
     appState.results = resItems.map(i => ({ id: i.id, ...i.fields }));
 
     const html = appState.groups.map(g => {
@@ -1068,13 +1473,13 @@ async function renderModeration() {
         return `<div class="mod-row">
           <span class="dot ${s.Failed ? 'dot-red' : override !== '' ? 'dot-amber' : 'dot-green'}" style="margin-right:0.5rem;flex-shrink:0"></span>
           <div class="mod-name">${s.Title} <span style="font-size:0.72rem;color:var(--text3)">(${s.StudentId})</span></div>
-          <div class="mod-scores">${s.Failed ? '<span style="color:var(--red)">Did not complete — scores discarded</span>' : `Peer scores: ${scores.map(x => x.toFixed(1)).join(', ') || '—'}`}</div>
+          <div class="mod-scores">${s.Failed ? '<span style="color:var(--red)">Did not complete — scores discarded</span>' : `Peer scores: ${scores.map(x => x.toFixed(1) + '%').join(', ') || '—'}`}</div>
           <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap">
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:500;min-width:50px;text-align:right;color:${s.Failed ? 'var(--red)' : 'var(--green)'}">${s.Failed ? '0.0' : avg}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:500;min-width:50px;text-align:right;color:${s.Failed ? 'var(--red)' : 'var(--green)'}">${s.Failed ? '0%' : avg + '%'}</div>
             ${!s.Failed ? `
               <div style="display:flex;align-items:center;gap:0.4rem">
-                <label style="margin:0;font-size:0.72rem;white-space:nowrap">Override:</label>
-                <input type="number" min="0" max="${appState.assignment?.MaxScore || 20}"
+                <label style="margin:0;font-size:0.72rem;white-space:nowrap">Override %:</label>
+                <input type="number" min="0" max="100"
                   value="${override}" placeholder="—"
                   id="ov-${s.StudentId}"
                   style="width:70px;padding:0.3rem 0.5rem;font-size:0.82rem;font-family:'JetBrains Mono',monospace;border-color:${override !== '' ? 'var(--amber)' : 'var(--border)'}">
@@ -1196,11 +1601,9 @@ function showStudentDetail(studentId) {
       return `<div class="card" style="padding:1rem;margin-bottom:0.75rem">
         <div style="display:flex;justify-content:space-between;margin-bottom:0.5rem">
           <div style="font-weight:500">Peer ${idx + 1}</div>
-          <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.WeightedScore?.toFixed(1)} / ${appState.assignment?.MaxScore || 20}</span>
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${r.WeightedScore?.toFixed(1)}%</span>
         </div>
-        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem">${appState.criteria.map((c, i) => `${c.Title}: ${scores[i] ?? '—'}`).join(' · ')}</div>
-        ${r.FeedbackStrengths ? `<div class="peer-feedback-item">💪 ${r.FeedbackStrengths}</div>` : ''}
-        ${r.FeedbackImprove ? `<div class="peer-feedback-item">📈 ${r.FeedbackImprove}</div>` : ''}
+        <div style="font-size:0.78rem;color:var(--text3);margin-bottom:0.5rem">${QUESTIONS.map((q, i) => `Q${i+1}: ${scores[i] === 1 ? 'Yes' : scores[i] === 0 ? 'No' : '—'}`).join(' · ')}</div>
       </div>`;
     }).join('');
 
@@ -1208,8 +1611,8 @@ function showStudentDetail(studentId) {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:0.75rem;color:var(--text3);margin-bottom:0.2rem">Peer average</div>
-          <div style="font-family:'Fraunces',serif;font-size:2.5rem;color:var(--green);line-height:1">${avg}</div>
-          <div style="font-size:0.78rem;color:var(--text3)">/ ${appState.assignment?.MaxScore || 20} · from ${validReviews.length} peer${validReviews.length !== 1 ? 's' : ''}</div>
+          <div style="font-family:'Fraunces',serif;font-size:2.5rem;color:var(--green);line-height:1">${avg}%</div>
+          <div style="font-size:0.78rem;color:var(--text3)">from ${validReviews.length} peer${validReviews.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
       ${feedbackHtml || '<p style="color:var(--text2)">No valid reviews yet.</p>'}`;
@@ -1221,7 +1624,7 @@ function showStudentDetail(studentId) {
 // RESULTS
 // =====================================================
 async function renderResults() {
-  if (currentUser.isInstructor) {
+  if (isInstructorMode()) {
     document.getElementById('results-instructor-actions').style.display = 'flex';
     renderResultsInstructor();
   } else {
@@ -1234,14 +1637,14 @@ function renderResultsInstructor() {
   const rows = appState.students.map(s => {
     const result = appState.results.find(r => r.StudentId === s.StudentId);
     const finalMark = s.Failed ? 0 : (result?.FinalMark ?? '—');
-    const pct = typeof finalMark === 'number' ? finalMark / (appState.assignment?.MaxScore || 20) * 100 : 0;
+    const pct = typeof finalMark === 'number' ? finalMark : 0;
     const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
     return `<tr>
       <td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text3)">${s.StudentId}</td>
       <td style="font-weight:500">${s.Title}</td>
       <td>${appState.groups.find(g => g.id === s.GroupId)?.Title || '—'}</td>
       <td>${s.Failed ? '<span class="badge badge-red">Non-submitter</span>' : '<span class="badge badge-green">Complete</span>'}</td>
-      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${finalMark}</div></div></td>
+      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${typeof finalMark === 'number' ? finalMark + '%' : finalMark}</div></div></td>
       <td>${result?.InstructorOverride != null ? `<span class="badge badge-amber">Override: ${result.InstructorOverride}</span>` : '—'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="showStudentDetail('${s.StudentId}')">Detail</button></td>
     </tr>`;
@@ -1291,7 +1694,7 @@ async function renderResultsStudent() {
 
   try {
     // Load this student's result
-    const resItems = await graphGetAll(listPath('results', `?$expand=fields&$filter=fields/StudentId eq '${ms.StudentId}' and fields/AssignmentId eq '${appState.assignment.id}'`));
+    const resItems = (await graphGetAll(listPath('results', '?$expand=fields'))).filter(i => i.fields.StudentId == ms.StudentId && i.fields.AssignmentId == appState.assignment.id);
     if (resItems.length === 0) {
       document.getElementById('results-content').innerHTML = `<div class="card"><p style="color:var(--text2)">Your result is not available yet.</p></div>`;
       return;
@@ -1299,59 +1702,41 @@ async function renderResultsStudent() {
     const result = resItems[0].fields;
 
     // Load reviews received (only after release — ValidForAggregation ones)
-    const rItems = await graphGetAll(listPath('reviews', `?$expand=fields&$filter=fields/RevieweeStudentId eq '${ms.StudentId}' and fields/AssignmentId eq '${appState.assignment.id}' and fields/ValidForAggregation eq true`));
+    const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.RevieweeStudentId == ms.StudentId && i.fields.AssignmentId == appState.assignment.id && i.fields.ValidForAggregation);
     const myReceivedReviews = rItems.map(i => i.fields);
 
-    const scale = appState.assignment?.MaxScore || 20;
+    const scale = 1;
     const finalMark = result.FinalMark;
-    const pct = Math.round(finalMark / scale * 100);
+    const pct = Math.round(finalMark);
 
     const feedbackHtml = myReceivedReviews.map((r, idx) => {
       const scores = JSON.parse(r.ScoresJSON || '[]');
-      const criteriaHtml = appState.criteria.map((c, i) => `
+      const criteriaHtml = QUESTIONS.map((q, i) => `
         <div style="margin-bottom:0.5rem">
           <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:0.25rem">
-            <span style="color:var(--text2)">${c.Title}</span>
-            <span style="font-family:'JetBrains Mono',monospace">${scores[i] ?? '—'}/${scale}</span>
+            <span style="color:var(--text2)">${q.replace(/^X/, 'You')}</span>
+            <span style="font-family:'JetBrains Mono',monospace">${scores[i] === 1 ? 'Yes' : scores[i] === 0 ? 'No' : '—'}</span>
           </div>
           <div class="bar"><div class="bar-fill" style="width:${scores[i] ? scores[i]/scale*100 : 0}%;background:var(--accent)"></div></div>
         </div>`).join('');
       return `<div class="card" style="margin-bottom:0.75rem;padding:1.2rem">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
           <div style="font-weight:600">Peer Review ${idx + 1}</div>
-          <div style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--accent)">${r.WeightedScore?.toFixed(1)}<span style="font-size:0.85rem;color:var(--text3)">/${scale}</span></div>
+          <div style="font-family:'Fraunces',serif;font-size:1.6rem;color:var(--accent)">${r.WeightedScore?.toFixed(1)}<span style="font-size:0.85rem;color:var(--text3)">%</span></div>
         </div>
         ${criteriaHtml}
-        ${r.FeedbackStrengths ? `<div class="peer-feedback-item">💪 <strong>Strength:</strong> ${r.FeedbackStrengths}</div>` : ''}
-        ${r.FeedbackImprove ? `<div class="peer-feedback-item">📈 <strong>To improve:</strong> ${r.FeedbackImprove}</div>` : ''}
       </div>`;
     }).join('');
 
     document.getElementById('results-content').innerHTML = `
-      <div style="display:grid;grid-template-columns:auto 1fr;gap:1.5rem;align-items:start;margin-bottom:2rem">
+      <div style="display:grid;grid-template-columns:auto;gap:1.5rem;align-items:start;margin-bottom:2rem">
         <div class="card" style="text-align:center;padding:1.75rem 2rem;min-width:180px">
           <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:0.5rem">Your Final Mark</div>
-          <div class="result-score-big" style="color:${pct>=70?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">${finalMark}</div>
-          <div style="font-size:0.85rem;color:var(--text3);margin-top:0.25rem">/ ${scale}</div>
+          <div class="result-score-big" style="color:${pct>=70?'var(--green)':pct>=50?'var(--amber)':'var(--red)'}">${finalMark}%</div>
           <hr>
           <div style="font-size:0.78rem;color:var(--text3)">${myReceivedReviews.length} peer review${myReceivedReviews.length !== 1 ? 's' : ''}</div>
           ${result.InstructorOverride != null ? `<div style="font-size:0.72rem;color:var(--amber);margin-top:0.25rem">⚠ Instructor adjusted</div>` : ''}
-        </div>
-        <div class="card">
-          <h3>Average by criterion</h3>
-          ${appState.criteria.map((c, ci) => {
-            const allScores = myReceivedReviews.map(r => JSON.parse(r.ScoresJSON || '[]')[ci]).filter(x => x !== undefined);
-            const avg = allScores.length ? allScores.reduce((a,b)=>a+b,0)/allScores.length : 0;
-            return `<div style="margin-bottom:0.85rem">
-              <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:0.3rem">
-                <span>${c.Title} <span style="color:var(--text3);font-size:0.75rem">(${c.WeightPercent}%)</span></span>
-                <span style="font-family:'JetBrains Mono',monospace;color:var(--accent)">${avg.toFixed(1)}/${scale}</span>
-              </div>
-              <div class="bar"><div class="bar-fill" style="width:${avg/scale*100}%;background:var(--accent)"></div></div>
-            </div>`;
-          }).join('')}
-        </div>
-      </div>
+        </div>      </div>
       <h3 style="margin-bottom:1rem">Individual Peer Reviews (${myReceivedReviews.length})</h3>
       ${feedbackHtml || '<div class="card"><p style="color:var(--text2)">No peer feedback available.</p></div>'}`;
 
@@ -1365,10 +1750,94 @@ async function renderResultsStudent() {
 // CRITERIA EDITOR
 // =====================================================
 function openCriteriaModal() {
-  renderCriteriaEditor();
-  openModal('modal-criteria');
+  // Legacy function - redirect to edit criteria modal
+  openEditCriteriaModal();
 }
 
+function openEditCriteriaModal() {
+  if (!isInstructorMode()) {
+    showToast('Only instructors can edit criteria', 'error');
+    return;
+  }
+  if (!appState.assignment) {
+    showToast('Create an assignment first', 'error');
+    return;
+  }
+  renderEditCriteriaEditor();
+  openModal('modal-edit-criteria');
+}
+
+function renderEditCriteriaEditor() {
+  // Initialize with default criteria if none exist
+  if (appState.criteria.length === 0) {
+    appState.criteria = [
+      { Title: 'Team Participation', Description: 'Attended meetings and contributed actively', WeightPercent: 25, SortOrder: 1 },
+      { Title: 'Task Completion', Description: 'Completed assigned tasks on time', WeightPercent: 25, SortOrder: 2 },
+      { Title: 'Quality of Work', Description: 'Produced high-quality output', WeightPercent: 25, SortOrder: 3 },
+      { Title: 'Communication', Description: 'Communicated effectively with team', WeightPercent: 25, SortOrder: 4 }
+    ];
+  }
+
+  document.getElementById('edit-criteria-editor').innerHTML = appState.criteria.map((c, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr 80px 40px;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
+      <div><label>Name</label><input type="text" value="${c.Title || ''}" oninput="appState.criteria[${i}].Title=this.value"></div>
+      <div><label>Description</label><input type="text" value="${c.Description || ''}" oninput="appState.criteria[${i}].Description=this.value"></div>
+      <div><label>Weight %</label><input type="number" value="${c.WeightPercent || 0}" min="1" max="100" oninput="appState.criteria[${i}].WeightPercent=parseInt(this.value)||0;checkEditWeights()"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="removeEditCriterionLocal(${i})">✕</button>
+    </div>`).join('');
+  checkEditWeights();
+}
+
+function addEditCriterion() {
+  appState.criteria.push({ Title: 'New Criterion', Description: '', WeightPercent: 0, SortOrder: appState.criteria.length + 1 });
+  renderEditCriteriaEditor();
+}
+
+function removeEditCriterionLocal(i) {
+  appState.criteria.splice(i, 1);
+  renderEditCriteriaEditor();
+}
+
+function checkEditWeights() {
+  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  const w = document.getElementById('edit-weight-warning');
+  if (total !== 100) { w.style.display = 'block'; w.textContent = `⚠ Weights sum to ${total}% — must be 100%`; }
+  else w.style.display = 'none';
+}
+
+async function saveEditCriteria() {
+  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  if (total !== 100) { showToast('Weights must sum to 100%', 'error'); return; }
+  if (!appState.assignment) { showToast('Create an assignment first', 'error'); return; }
+
+  closeModal('modal-edit-criteria');
+  showToast('Saving criteria…', 'info');
+
+  try {
+    // Delete existing criteria for this assignment then re-create
+    for (const c of appState.criteria.filter(c => c.id)) {
+      await graph('DELETE', listPath('criteria', '/' + c.id));
+    }
+    for (let i = 0; i < appState.criteria.length; i++) {
+      const c = appState.criteria[i];
+      await graph('POST', listPath('criteria'), {
+        fields: {
+          Title:        c.Title,
+          Description:  c.Description || '',
+          WeightPercent: c.WeightPercent,
+          SortOrder:    i + 1,
+          AssignmentId: appState.assignment.id
+        }
+      });
+    }
+    showToast('✓ Criteria saved to SharePoint');
+  } catch (err) {
+    showToast('Error saving criteria: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+// Legacy criteria modal functions (for modal-criteria)
 function renderCriteriaEditor() {
   document.getElementById('criteria-editor').innerHTML = appState.criteria.map((c, i) => `
     <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
@@ -1441,6 +1910,7 @@ async function createAssignment() {
   btn.textContent = 'Creating…';
 
   try {
+    const assignmentUUID = generateUUID();
     const res = await graph('POST', listPath('assignments'), {
       fields: {
         Title:              title,
@@ -1451,11 +1921,13 @@ async function createAssignment() {
         MaxScore:           parseInt(document.getElementById('m-scale').value),
         Anonymous:          document.getElementById('m-anon').value === '1',
         Released:           false,
-        CreatedByEmail:     currentUser.email
+        CreatedByEmail:     currentUser.email,
+        UUID:               assignmentUUID
       }
     });
 
     appState.assignment = { id: res.id, ...res.fields };
+    appState.assignmentUUID = assignmentUUID;
     closeModal('modal-new');
     showToast('✓ Assignment created in SharePoint');
     btn.disabled = false;
@@ -1485,6 +1957,16 @@ function exportCSV() {
   a.download = `peermark_results_${appState.assignment?.ModuleCode || 'export'}.csv`;
   a.click();
   showToast('CSV exported', 'info');
+}
+
+// =====================================================
+// HELP
+// =====================================================
+function renderHelp() {
+  const instructorSection = document.getElementById('help-instructor-section');
+  if (instructorSection) {
+    instructorSection.style.display = currentUser && currentUser.isInstructor ? 'block' : 'none';
+  }
 }
 
 // =====================================================
