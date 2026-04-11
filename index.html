@@ -1020,13 +1020,15 @@ async function loadGroupsAndStudents() {
   console.log('All groups from SharePoint:', gItems.length);
   console.log('All students from SharePoint:', sItems.length);
 
-  appState.groups = gItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
-  appState.students = sItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
+  // Filter by current assignment ID
+  const aid = appState.assignment?.id;
+  console.log('Filtering by assignment ID:', aid);
+  appState.groups = gItems.filter(i => i.fields.AssignmentId == aid).map(i => ({ id: i.id, ...i.fields }));
+  appState.students = sItems.filter(i => i.fields.AssignmentId == aid).map(i => ({ id: i.id, ...i.fields }));
 
   // Debug: show what AssignmentId values exist in SharePoint
   console.log('Assignment IDs in groups:', gItems.map(i => i.fields.AssignmentId));
   console.log('Assignment IDs in students:', sItems.map(i => i.fields.AssignmentId));
-  console.log('Current assignment id:', appState.assignment.id, typeof appState.assignment.id);
 
   console.log('Filtered groups:', appState.groups.length);
   console.log('Filtered students:', appState.students.length);
@@ -1044,8 +1046,10 @@ async function loadGroupsAndStudents() {
     }
   }
 
+  // Update all tabs with fresh data
   renderDashboard();
-  renderStudents(); // Refresh students tab
+  renderStudents();
+  renderMarking(); // Also refresh marking tab
 }
 
 // Link orphaned groups/students to the current assignment
