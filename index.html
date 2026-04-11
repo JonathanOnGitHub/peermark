@@ -1022,10 +1022,63 @@ async function loadGroupsAndStudents() {
   appState.groups = gItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
   appState.students = sItems.filter(i => i.fields.AssignmentId == appState.assignment.id).map(i => ({ id: i.id, ...i.fields }));
 
+  // Debug: show what AssignmentId values exist in SharePoint
+  console.log('Assignment IDs in groups:', gItems.map(i => i.fields.AssignmentId));
+  console.log('Assignment IDs in students:', sItems.map(i => i.fields.AssignmentId));
+  console.log('Current assignment id:', appState.assignment.id, typeof appState.assignment.id);
+
   console.log('Filtered groups:', appState.groups.length);
   console.log('Filtered students:', appState.students.length);
 
+  // If no groups/students matched, offer to link existing data to this assignment
+  if (appState.groups.length === 0 && gItems.length > 0 && appState.assignment) {
+    showToast('Found orphaned groups/students. Click to link them to this assignment.', 'warn');
+    const linkBtn = document.createElement('button');
+    linkBtn.className = 'btn btn-ghost';
+    linkBtn.textContent = 'Link existing data to this assessment';
+    linkBtn.onclick = () => linkExistingDataToAssignment();
+    const dashContent = document.getElementById('dash-content');
+    if (dashContent) {
+      dashContent.insertBefore(linkBtn, dashContent.firstChild);
+    }
+  }
+
   renderDashboard();
+}
+
+// Link orphaned groups/students to the current assignment
+async function linkExistingDataToAssignment() {
+  if (!appState.assignment) return;
+  if (!confirm('This will link all existing groups and students to the current assessment. Continue?')) return;
+
+  setLoading('Linking data to assessment...');
+  try {
+    const [gItems, sItems] = await Promise.all([
+      graphGetAll(listPath('groups', '?$expand=fields')),
+      graphGetAll(listPath('students', '?$expand=fields'))
+    ]);
+
+    let updated = 0;
+    for (const g of gItems) {
+      await graph('PATCH', listPath('groups', '/' + g.id), {
+        fields: { AssignmentId: appState.assignment.id }
+      });
+      updated++;
+    }
+    for (const s of sItems) {
+      await graph('PATCH', listPath('students', '/' + s.id), {
+        fields: { AssignmentId: appState.assignment.id }
+      });
+      updated++;
+    }
+
+    showToast(`Updated ${updated} items`);
+    await loadApp();
+  } catch (err) {
+    showToast('Error linking data: ' + err.message, 'error');
+    console.error(err);
+  }
+  hideLoading();
 }
 
 async function loadMyData() {
@@ -1321,6 +1374,19 @@ function renderCriteria() {
 
   const isInstructor = isInstructorMode();
   document.getElementById('criteria-actions').style.display = isInstructor ? 'flex' : 'none';
+
+  // Auto-populate with default criteria if none exist (only for instructors)
+  if (appState.criteria.length === 0 && isInstructor) {
+    appState.criteria = QUESTIONS.map((q, i) => {
+      const title = q.replace(/^X /, '').replace(/\.$/, '').trim();
+      return {
+        Title: title.charAt(0).toUpperCase() + title.slice(1),
+        Description: q,
+        Weight: 10,
+        MaxScore: 1
+      };
+    });
+  }
 
   const criteria = appState.criteria;
 
@@ -2182,28 +2248,32 @@ function openEditCriteriaModal() {
 }
 
 function renderEditCriteriaEditor() {
-  // Initialize with default criteria if none exist
+  // Initialize with default criteria if none exist (using the full QUESTIONS array)
   if (appState.criteria.length === 0) {
-    appState.criteria = [
-      { Title: 'Team Participation', Description: 'Attended meetings and contributed actively', WeightPercent: 25, SortOrder: 1 },
-      { Title: 'Task Completion', Description: 'Completed assigned tasks on time', WeightPercent: 25, SortOrder: 2 },
-      { Title: 'Quality of Work', Description: 'Produced high-quality output', WeightPercent: 25, SortOrder: 3 },
-      { Title: 'Communication', Description: 'Communicated effectively with team', WeightPercent: 25, SortOrder: 4 }
-    ];
+    appState.criteria = QUESTIONS.map((q, i) => {
+      // Replace X with a generic placeholder
+      const title = q.replace(/^X /, '').replace(/\.$/, '').trim();
+      return {
+        Title: title.charAt(0).toUpperCase() + title.slice(1),
+        Description: q,
+        Weight: 10,
+        MaxScore: 1
+      };
+    });
   }
 
   document.getElementById('edit-criteria-editor').innerHTML = appState.criteria.map((c, i) => `
     <div style="display:grid;grid-template-columns:1fr 1fr 80px 40px;gap:0.75rem;align-items:end;margin-bottom:0.75rem">
       <div><label>Name</label><input type="text" value="${c.Title || ''}" oninput="appState.criteria[${i}].Title=this.value"></div>
       <div><label>Description</label><input type="text" value="${c.Description || ''}" oninput="appState.criteria[${i}].Description=this.value"></div>
-      <div><label>Weight %</label><input type="number" value="${c.WeightPercent || 0}" min="1" max="100" oninput="appState.criteria[${i}].WeightPercent=parseInt(this.value)||0;checkEditWeights()"></div>
+      <div><label>Weight %</label><input type="number" value="${c.Weight || 0}" min="1" max="100" oninput="appState.criteria[${i}].Weight=parseInt(this.value)||0;checkEditWeights()"></div>
       <button class="btn btn-ghost btn-sm" style="margin-bottom:0" onclick="removeEditCriterionLocal(${i})">✕</button>
     </div>`).join('');
   checkEditWeights();
 }
 
 function addEditCriterion() {
-  appState.criteria.push({ Title: 'New Criterion', Description: '', WeightPercent: 0, SortOrder: appState.criteria.length + 1 });
+  appState.criteria.push({ Title: 'New Criterion', Description: '', Weight: 0, MaxScore: 1 });
   renderEditCriteriaEditor();
 }
 
@@ -2213,14 +2283,14 @@ function removeEditCriterionLocal(i) {
 }
 
 function checkEditWeights() {
-  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  const total = appState.criteria.reduce((s, c) => s + (c.Weight || 0), 0);
   const w = document.getElementById('edit-weight-warning');
-  if (total !== 100) { w.style.display = 'block'; w.textContent = `⚠ Weights sum to ${total}% — must be 100%`; }
+  if (total !== 100) { w.style.display = 'block'; w.textContent = `Weights sum to ${total}% — must be 100%`; }
   else w.style.display = 'none';
 }
 
 async function saveEditCriteria() {
-  const total = appState.criteria.reduce((s, c) => s + (c.WeightPercent || 0), 0);
+  const total = appState.criteria.reduce((s, c) => s + (c.Weight || 0), 0);
   if (total !== 100) { showToast('Weights must sum to 100%', 'error'); return; }
   if (!appState.assignment) { showToast('Create an assignment first', 'error'); return; }
 
