@@ -1517,25 +1517,12 @@ function renderStudents() {
 // CSV IMPORT/EXPORT
 // =====================================================
 function downloadSampleCSV() {
-  const data = [
-    ["GroupName", "StudentName", "StudentEmail", "StudentId"],
-    ["Team Alpha", "Alice Smith", "alice@example.com", "s001"],
-    ["Team Alpha", "Bob Jones", "bob@example.com", "s002"],
-    ["Team Alpha", "Carol White", "carol@example.com", "s003"],
-    ["Team Beta", "David Brown", "david@example.com", "s004"],
-    ["Team Beta", "Eva Green", "eva@example.com", "s005"],
-    ["Team Beta", "Frank Black", "frank@example.com", "s006"]
-  ];
-
-  // Create Excel workbook and download
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Students");
-  XLSX.writeFile(wb, "sample_groups.xlsx");
+  const csv = `student_id,name,email,group\nS01,Alice Tran,a.tran@nottingham.ac.uk,Group 1\nS02,Bolu Adeyemi,b.adeyemi@nottingham.ac.uk,Group 1\nS03,Chen Wei,c.wei@nottingham.ac.uk,Group 1\nS04,Diana Kovacs,d.kovacs@nottingham.ac.uk,Group 1\n`;
+  const a = document.createElement('a');
+  a.href = 'data:text/csv,' + encodeURIComponent(csv);
+  a.download = 'peermark_sample.csv';
+  a.click();
 }
-
-// Legacy CSV download (still works for .csv files)
-// function downloadSampleCSV() { ... }
 
 // Helper function to find column index with flexible matching
 function findColumnIndex(header, possibleNames) {
@@ -1550,9 +1537,13 @@ function findColumnIndex(header, possibleNames) {
   return -1;
 }
 
-async function importCSV(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+async function importCSV(e) {
+  const file = e.target.files[0];
+  if (!file || !appState.assignment) return;
+  if (!isInstructorMode()) {
+    showToast('Only instructors can import students', 'error');
+    return;
+  }
 
   setLoading('Importing students...');
   try {
@@ -1604,7 +1595,7 @@ async function importCSV(event) {
     const groupNames = ['groupname', 'group', 'team', 'teamname'];
     const nameNames = ['studentname', 'name', 'student', 'fullname'];
     const emailNames = ['studentemail', 'email', 'mail'];
-    const idNames = ['studentid', 'student_id', 'id', 'sid', 'sid'];
+    const idNames = ['studentid', 'student_id', 'id', 'sid'];
 
     const groupIdx = findColumnIndex(header, groupNames);
     const nameIdx = findColumnIndex(header, nameNames);
@@ -1680,7 +1671,10 @@ async function importCSV(event) {
 
     // Reload data
     await loadGroupsAndStudents();
+    if (isStudentMode()) await loadMyData();
     hideLoading();
+    renderStudents();
+    renderDashboard();
 
   } catch (err) {
     hideLoading();
@@ -1689,7 +1683,7 @@ async function importCSV(event) {
   }
 
   // Reset file input
-  event.target.value = '';
+  e.target.value = '';
 }
 
 // =====================================================
@@ -1834,90 +1828,6 @@ function copyShareLink() {
   }).catch(() => {
     showToast('Failed to copy', 'error');
   });
-}
-
-function downloadSampleCSV() {
-  const csv = `student_id,name,email,group\nS01,Alice Tran,a.tran@nottingham.ac.uk,Group 1\nS02,Bolu Adeyemi,b.adeyemi@nottingham.ac.uk,Group 1\nS03,Chen Wei,c.wei@nottingham.ac.uk,Group 1\nS04,Diana Kovacs,d.kovacs@nottingham.ac.uk,Group 1\n`;
-  const a = document.createElement('a');
-  a.href = 'data:text/csv,' + encodeURIComponent(csv);
-  a.download = 'peermark_sample.csv';
-  a.click();
-}
-
-async function importCSV(e) {
-  const file = e.target.files[0];
-  if (!file || !appState.assignment) return;
-  if (!isInstructorMode()) {
-    showToast('Only instructors can import students', 'error');
-    return;
-  }
-  const text = await file.text();
-  const lines = text.trim().split('\n');
-  const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
-  const idIdx    = headers.indexOf('student_id');
-  const nameIdx  = headers.indexOf('name');
-  const emailIdx = headers.indexOf('email');
-  const groupIdx = headers.indexOf('group');
-
-  if ([idIdx, nameIdx, emailIdx, groupIdx].includes(-1)) {
-    showToast('CSV must have columns: student_id, name, email, group', 'error');
-    return;
-  }
-
-  showToast('Importing…', 'info');
-  setLoading('Importing groups and students…');
-
-  try {
-    // Parse rows
-    const rows = lines.slice(1).map(l => {
-      const cols = l.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-      return { studentId: cols[idIdx], name: cols[nameIdx], email: cols[emailIdx].toLowerCase(), group: cols[groupIdx] };
-    }).filter(r => r.studentId && r.name && r.email && r.group);
-
-    // Unique groups
-    const groupNames = [...new Set(rows.map(r => r.group))];
-
-    // Create group rows
-    const groupMap = {}; // name → sharepoint item id
-    for (const gName of groupNames) {
-      const res = await graph('POST', listPath('groups'), {
-        fields: { Title: gName, AssignmentId: appState.assignment.id }
-      });
-      groupMap[gName] = res.id;
-    }
-
-    // Create student rows
-    const groupSizes = {};
-    rows.forEach(r => { groupSizes[r.group] = (groupSizes[r.group] || 0) + 1; });
-
-    for (const row of rows) {
-      await graph('POST', listPath('students'), {
-        fields: {
-          Title:               row.name,
-          StudentId:           row.studentId,
-          Email:               row.email,
-          GroupId:             groupMap[row.group],
-          AssignmentId:        appState.assignment.id,
-          ReviewsRequired:     groupSizes[row.group] - 1,
-          ReviewsSubmitted:    0,
-          CompletedAllReviews: false,
-          Failed:              false
-        }
-      });
-    }
-
-    await loadGroupsAndStudents();
-    if (isStudentMode()) await loadMyData();
-    hideLoading();
-    showToast(`✓ Imported ${rows.length} students across ${groupNames.length} groups`);
-    renderGroups();
-    renderDashboard();
-
-  } catch (err) {
-    hideLoading();
-    showToast('Import failed: ' + err.message, 'error');
-    console.error(err);
-  }
 }
 
 // =====================================================
