@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PeerMark</title>
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -413,9 +414,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="page-head">
     <div><h1>Students</h1><p class="sub">Import and manage student groups</p></div>
     <div id="students-actions" style="display:none;gap:0.75rem">
-      <button class="btn btn-ghost btn-sm" onclick="downloadSampleCSV()">⬇ Sample CSV</button>
-      <button class="btn btn-primary" onclick="document.getElementById('csv-input').click()">Import CSV</button>
-      <input type="file" id="csv-input" accept=".csv" style="display:none" onchange="importCSV(event)">
+      <button class="btn btn-ghost btn-sm" onclick="downloadSampleCSV()">⬇ Sample Template</button>
+      <button class="btn btn-primary" onclick="document.getElementById('csv-input').click()">Import Excel/CSV</button>
+      <input type="file" id="csv-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="importCSV(event)">
     </div>
   </div>
   <div id="students-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
@@ -1435,6 +1436,10 @@ function renderCriteria() {
 // STUDENTS
 // =====================================================
 function renderStudents() {
+  // Show/hide import buttons based on instructor mode
+  const canImport = isInstructorMode();
+  document.getElementById('students-actions').style.display = canImport ? 'flex' : 'none';
+
   if (!appState.assignment) {
     document.getElementById('students-content').innerHTML = `
       <div class="card" style="text-align:center;padding:3rem">
@@ -1476,7 +1481,18 @@ function renderStudents() {
   }
 
   // Instructor view - show import UI
-  if (appState.groups.length === 0) return; // show upload zone (already in HTML)
+  if (appState.groups.length === 0) {
+    // Show upload zone when no groups exist
+    document.getElementById('students-content').innerHTML = `
+      <div class="upload-zone" onclick="document.getElementById('csv-input').click()">
+        <div style="font-size:2.5rem;margin-bottom:0.75rem">📋</div>
+        <div style="font-weight:600;margin-bottom:0.35rem">Import student groups</div>
+        <p style="color:var(--text2);font-size:0.85rem">Click to upload a CSV file, or use the buttons above.</p>
+        <p style="color:var(--text3);font-size:0.78rem;margin-top:0.5rem">CSV format: GroupName, StudentName, StudentEmail, StudentId</p>
+      </div>
+    `;
+    return;
+  }
 
   const groupsHtml = appState.groups.map(g => {
     const members = appState.students.filter(s => s.GroupId === g.id);
@@ -1495,6 +1511,176 @@ function renderStudents() {
   }).join('');
 
   document.getElementById('students-content').innerHTML = groupsHtml;
+}
+
+// =====================================================
+// CSV IMPORT/EXPORT
+// =====================================================
+function downloadSampleCSV() {
+  const data = [
+    ["GroupName", "StudentName", "StudentEmail", "StudentId"],
+    ["Team Alpha", "Alice Smith", "alice@example.com", "s001"],
+    ["Team Alpha", "Bob Jones", "bob@example.com", "s002"],
+    ["Team Alpha", "Carol White", "carol@example.com", "s003"],
+    ["Team Beta", "David Brown", "david@example.com", "s004"],
+    ["Team Beta", "Eva Green", "eva@example.com", "s005"],
+    ["Team Beta", "Frank Black", "frank@example.com", "s006"]
+  ];
+
+  // Create Excel workbook and download
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Students");
+  XLSX.writeFile(wb, "sample_groups.xlsx");
+}
+
+// Legacy CSV download (still works for .csv files)
+// function downloadSampleCSV() { ... }
+
+async function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  setLoading('Importing students...');
+  try {
+    let groupMap;
+
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      // Parse Excel file using XLSX library
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+      if (jsonData.length < 2) {
+        throw new Error('Excel file must have a header row and at least one data row');
+      }
+
+      // Parse header
+      const header = jsonData[0].map(h => String(h || '').trim());
+      const groupIdx = header.findIndex(h => h.toLowerCase() === 'groupname');
+      const nameIdx = header.findIndex(h => h.toLowerCase() === 'studentname');
+      const emailIdx = header.findIndex(h => h.toLowerCase() === 'studentemail');
+      const idIdx = header.findIndex(h => h.toLowerCase() === 'studentid');
+
+      if (groupIdx === -1 || nameIdx === -1) {
+        throw new Error('Excel must have GroupName and StudentName columns');
+      }
+
+      // Parse data and group by group
+      groupMap = new Map();
+
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const groupName = String(row[groupIdx] || '').trim();
+        const studentName = String(row[nameIdx] || '').trim();
+        const studentEmail = emailIdx >= 0 ? String(row[emailIdx] || '').trim() : '';
+        const studentId = idIdx >= 0 ? String(row[idIdx] || '').trim() : '';
+
+        if (!groupName || !studentName) continue;
+
+        if (!groupMap.has(groupName)) {
+          groupMap.set(groupName, { title: groupName, students: [] });
+        }
+        groupMap.get(groupName).students.push({
+          Title: studentName,
+          Email: studentEmail,
+          StudentId: studentId
+        });
+      }
+    } else {
+      // Parse CSV file
+      const text = await file.text();
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) {
+        throw new Error('CSV file must have a header row and at least one data row');
+      }
+
+      // Parse header
+      const header = lines[0].split(',').map(h => h.trim());
+      const groupIdx = header.indexOf('GroupName');
+      const nameIdx = header.indexOf('StudentName');
+      const emailIdx = header.indexOf('StudentEmail');
+      const idIdx = header.indexOf('StudentId');
+
+      if (groupIdx === -1 || nameIdx === -1) {
+        throw new Error('CSV must have GroupName and StudentName columns');
+      }
+
+      // Parse data and group by group
+      groupMap = new Map();
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim());
+        const groupName = cols[groupIdx];
+        const studentName = cols[nameIdx];
+        const studentEmail = emailIdx >= 0 ? cols[emailIdx] : '';
+        const studentId = idIdx >= 0 ? cols[idIdx] : '';
+
+        if (!groupName || !studentName) continue;
+
+        if (!groupMap.has(groupName)) {
+          groupMap.set(groupName, { title: groupName, students: [] });
+        }
+        groupMap.get(groupName).students.push({
+          Title: studentName,
+          Email: studentEmail,
+          StudentId: studentId
+        });
+      }
+    }
+
+    if (!groupMap || groupMap.size === 0) {
+      throw new Error('No valid student data found in file');
+    }
+
+    // Create groups and students in SharePoint
+    const assignmentId = appState.assignment.id;
+    let groupsCreated = 0;
+    let studentsCreated = 0;
+
+    for (const [groupName, groupData] of groupMap) {
+      // Create group
+      const groupRes = await graph('POST', listPath('groups'), {
+        fields: {
+          Title: groupData.title,
+          AssignmentId: assignmentId
+        }
+      });
+      groupsCreated++;
+
+      // Create students in this group
+      for (const student of groupData.students) {
+        await graph('POST', listPath('students'), {
+          fields: {
+            Title: student.Title,
+            Email: student.Email || '',
+            StudentId: student.StudentId || '',
+            GroupId: groupRes.id,
+            AssignmentId: assignmentId,
+            CompletedAllReviews: false,
+            Failed: false
+          }
+        });
+        studentsCreated++;
+      }
+    }
+
+    showToast(`Imported ${groupsCreated} groups with ${studentsCreated} students`, 'success');
+
+    // Reload data
+    await loadGroupsAndStudents();
+    hideLoading();
+
+  } catch (err) {
+    hideLoading();
+    showToast('Import failed: ' + err.message, 'error');
+    console.error(err);
+  }
+
+  // Reset file input
+  event.target.value = '';
 }
 
 // =====================================================
