@@ -1151,8 +1151,7 @@ async function loadAllAssignments() {
     }
 
     // Render assignment list
-    const isInstructorUser = currentUser && currentUser.isInstructor;
-    const canCreate = canSeeInstructorActions;
+    const canCreate = currentUser && currentUser.isInstructor && effectiveRole === 'instructor';
 
     // Check if we have an active assignment to show stats for
     let activeStatsHtml = '';
@@ -1241,7 +1240,7 @@ async function selectAssignmentById(assignmentId) {
     const a = await loadAssignmentById(assignmentId);
     if (a) {
       appState.assignment = a;
-      await loadAppData();
+      await loadApp();
       updateTabVisibility();
       // Navigate to Overview
       nav('overview');
@@ -2373,7 +2372,7 @@ async function selectAssignment(assignmentId) {
     const a = await loadAssignmentById(assignmentId);
     if (a) {
       appState.assignment = a;
-      await loadAppData();
+      await loadApp();
       updateTabVisibility();
       // Refresh dashboard to show active assignment
       loadAllAssignments();
