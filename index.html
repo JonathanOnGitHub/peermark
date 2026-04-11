@@ -1220,9 +1220,9 @@ async function loadAllAssignments() {
       const failed = students.filter(s => s.Failed).length;
       let totalReviews = 0, doneReviews = 0;
       appState.groups.forEach(g => {
-        const n = students.filter(s => s.GroupId === g.id).length;
+        const n = students.filter(s => String(s.GroupId) === String(g.id)).length;
         totalReviews += n * (n - 1);
-        doneReviews += students.filter(s => s.GroupId === g.id && s.CompletedAllReviews).length * (n - 1);
+        doneReviews += students.filter(s => String(s.GroupId) === String(g.id) && s.CompletedAllReviews).length * (n - 1);
       });
       const pct = totalReviews ? Math.round(doneReviews / totalReviews * 100) : 0;
 
@@ -1730,9 +1730,9 @@ function renderOverview() {
 
   let totalReviews = 0, doneReviews = 0;
   groups.forEach(g => {
-    const n = students.filter(s => s.GroupId === g.id).length;
+    const n = students.filter(s => String(s.GroupId) === String(g.id)).length;
     totalReviews += n * (n - 1);
-    doneReviews += students.filter(s => s.GroupId === g.id && s.CompletedAllReviews).length * (n - 1);
+    doneReviews += students.filter(s => String(s.GroupId) === String(g.id) && s.CompletedAllReviews).length * (n - 1);
   });
   const pct = totalReviews ? Math.round(doneReviews / totalReviews * 100) : 0;
 
@@ -1864,7 +1864,7 @@ function renderMarkingInstructor() {
 
   const failed = appState.students.filter(s => s.Failed);
   const groupRows = appState.groups.map(g => {
-    const members = appState.students.filter(s => s.GroupId === g.id);
+    const members = appState.students.filter(s => String(s.GroupId) === String(g.id));
     const n = members.length;
     const done = members.filter(s => s.CompletedAllReviews).length;
     const fail = members.filter(s => s.Failed).length;
@@ -2053,7 +2053,7 @@ async function renderModeration() {
     appState.results = resItems.map(i => ({ id: i.id, ...i.fields }));
 
     const html = appState.groups.map(g => {
-      const members = appState.students.filter(s => s.GroupId === g.id);
+      const members = appState.students.filter(s => String(s.GroupId) === String(g.id));
       const fail = members.filter(s => s.Failed).length;
 
       const rows = members.map(s => {
