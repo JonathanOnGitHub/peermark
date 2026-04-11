@@ -1537,13 +1537,26 @@ function downloadSampleCSV() {
 // Legacy CSV download (still works for .csv files)
 // function downloadSampleCSV() { ... }
 
+// Helper function to find column index with flexible matching
+function findColumnIndex(header, possibleNames) {
+  for (let i = 0; i < header.length; i++) {
+    const h = header[i].toLowerCase().replace(/[_\s-]/g, '');
+    for (const name of possibleNames) {
+      if (h === name.toLowerCase().replace(/[_\s-]/g, '')) {
+        return i;
+      }
+    }
+  }
+  return -1;
+}
+
 async function importCSV(event) {
   const file = event.target.files[0];
   if (!file) return;
 
   setLoading('Importing students...');
   try {
-    let groupMap;
+    let rows;
 
     if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       // Parse Excel file using XLSX library
@@ -1554,84 +1567,80 @@ async function importCSV(event) {
       const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
       if (jsonData.length < 2) {
-        throw new Error('Excel file must have a header row and at least one data row');
+        throw new Error('File must have a header row and at least one data row');
       }
-
-      // Parse header
-      const header = jsonData[0].map(h => String(h || '').trim());
-      const groupIdx = header.findIndex(h => h.toLowerCase() === 'groupname');
-      const nameIdx = header.findIndex(h => h.toLowerCase() === 'studentname');
-      const emailIdx = header.findIndex(h => h.toLowerCase() === 'studentemail');
-      const idIdx = header.findIndex(h => h.toLowerCase() === 'studentid');
-
-      if (groupIdx === -1 || nameIdx === -1) {
-        throw new Error('Excel must have GroupName and StudentName columns');
-      }
-
-      // Parse data and group by group
-      groupMap = new Map();
-
-      for (let i = 1; i < jsonData.length; i++) {
-        const row = jsonData[i];
-        const groupName = String(row[groupIdx] || '').trim();
-        const studentName = String(row[nameIdx] || '').trim();
-        const studentEmail = emailIdx >= 0 ? String(row[emailIdx] || '').trim() : '';
-        const studentId = idIdx >= 0 ? String(row[idIdx] || '').trim() : '';
-
-        if (!groupName || !studentName) continue;
-
-        if (!groupMap.has(groupName)) {
-          groupMap.set(groupName, { title: groupName, students: [] });
-        }
-        groupMap.get(groupName).students.push({
-          Title: studentName,
-          Email: studentEmail,
-          StudentId: studentId
-        });
-      }
+      rows = jsonData;
     } else {
-      // Parse CSV file
+      // Parse CSV file - handle commas within quoted strings
       const text = await file.text();
       const lines = text.trim().split('\n');
       if (lines.length < 2) {
-        throw new Error('CSV file must have a header row and at least one data row');
+        throw new Error('File must have a header row and at least one data row');
       }
-
-      // Parse header
-      const header = lines[0].split(',').map(h => h.trim());
-      const groupIdx = header.indexOf('GroupName');
-      const nameIdx = header.indexOf('StudentName');
-      const emailIdx = header.indexOf('StudentEmail');
-      const idIdx = header.indexOf('StudentId');
-
-      if (groupIdx === -1 || nameIdx === -1) {
-        throw new Error('CSV must have GroupName and StudentName columns');
-      }
-
-      // Parse data and group by group
-      groupMap = new Map();
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',').map(c => c.trim());
-        const groupName = cols[groupIdx];
-        const studentName = cols[nameIdx];
-        const studentEmail = emailIdx >= 0 ? cols[emailIdx] : '';
-        const studentId = idIdx >= 0 ? cols[idIdx] : '';
-
-        if (!groupName || !studentName) continue;
-
-        if (!groupMap.has(groupName)) {
-          groupMap.set(groupName, { title: groupName, students: [] });
+      rows = lines.map(line => {
+        const cols = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (c === '"') {
+            inQuotes = !inQuotes;
+          } else if (c === ',' && !inQuotes) {
+            cols.push(current.trim());
+            current = '';
+          } else {
+            current += c;
+          }
         }
-        groupMap.get(groupName).students.push({
-          Title: studentName,
-          Email: studentEmail,
-          StudentId: studentId
-        });
-      }
+        cols.push(current.trim());
+        return cols;
+      });
     }
 
-    if (!groupMap || groupMap.size === 0) {
+    // Parse header
+    const header = rows[0].map(h => String(h || '').trim());
+
+    // Find columns with flexible matching
+    const groupNames = ['groupname', 'group', 'team', 'teamname'];
+    const nameNames = ['studentname', 'name', 'student', 'fullname'];
+    const emailNames = ['studentemail', 'email', 'mail'];
+    const idNames = ['studentid', 'student_id', 'id', 'sid', 'sid'];
+
+    const groupIdx = findColumnIndex(header, groupNames);
+    const nameIdx = findColumnIndex(header, nameNames);
+    const emailIdx = findColumnIndex(header, emailNames);
+    const idIdx = findColumnIndex(header, idNames);
+
+    if (groupIdx === -1) {
+      throw new Error('Could not find group/team column. Expected: group, team, groupname, or teamname');
+    }
+    if (nameIdx === -1) {
+      throw new Error('Could not find name column. Expected: name, student, studentname, or fullname');
+    }
+
+    // Parse data and group by group
+    const groupMap = new Map();
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      const groupName = String(row[groupIdx] || '').trim();
+      const studentName = String(row[nameIdx] || '').trim();
+      const studentEmail = emailIdx >= 0 ? String(row[emailIdx] || '').trim() : '';
+      const studentId = idIdx >= 0 ? String(row[idIdx] || '').trim() : '';
+
+      if (!groupName || !studentName) continue;
+
+      if (!groupMap.has(groupName)) {
+        groupMap.set(groupName, { title: groupName, students: [] });
+      }
+      groupMap.get(groupName).students.push({
+        Title: studentName,
+        Email: studentEmail,
+        StudentId: studentId
+      });
+    }
+
+    if (groupMap.size === 0) {
       throw new Error('No valid student data found in file');
     }
 
