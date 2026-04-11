@@ -1499,8 +1499,14 @@ function renderStudents() {
     return;
   }
 
+  // Debug: log IDs for troubleshooting
+  console.log('=== Render Students Debug ===');
+  console.log('Groups:', appState.groups.map(g => ({ id: g.id, title: g.Title })));
+  console.log('Students:', appState.students.map(s => ({ id: s.id, title: s.Title, GroupId: s.GroupId })));
+
   const groupsHtml = appState.groups.map(g => {
-    const members = appState.students.filter(s => s.GroupId === g.id);
+    const members = appState.students.filter(s => String(s.GroupId) === String(g.id));
+    console.log(`Group "${g.Title}" (id=${g.id}): found ${members.length} students, expected GroupId=${g.id}`);
     const done = members.filter(s => s.CompletedAllReviews).length;
     const fail = members.filter(s => s.Failed).length;
     const n = members.length;
