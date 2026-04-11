@@ -2407,10 +2407,11 @@ async function deleteAssessment() {
     const listsToDelete = ['results', 'reviews', 'students', 'groups', 'criteria'];
 
     for (const listName of listsToDelete) {
-      // Find items linked to this assignment
-      const items = await graph('GET', `${listPath(listName)}?$filter=AssignmentId eq '${pendingDeleteId}'&$select=id`);
+      // Get all items with expanded fields and filter client-side
+      const allItems = await graphGetAll(listPath(listName, '?$expand=fields'));
+      const itemsToDelete = allItems.filter(i => i.fields.AssignmentId == pendingDeleteId);
       // Delete each item
-      for (const item of (items.value || [])) {
+      for (const item of itemsToDelete) {
         await graph('DELETE', listPath(listName, '/' + item.id));
       }
     }
