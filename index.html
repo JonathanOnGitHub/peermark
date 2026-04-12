@@ -454,7 +454,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="page-head">
     <div><h1>Moderation</h1><p class="sub">Review marks, override where needed, then release</p></div>
     <div style="display:flex;gap:0.75rem">
-      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export XLSX</button>
       <button class="btn btn-green" onclick="releaseResults()">Release Results to Students</button>
     </div>
   </div>
@@ -466,7 +466,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
   <div class="page-head">
     <div><h1>Results</h1><p class="sub" id="results-sub">Peer assessment results</p></div>
     <div id="results-instructor-actions" style="display:none;gap:0.75rem">
-      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-ghost" onclick="exportCSV()">⬇ Export XLSX</button>
     </div>
   </div>
   <div id="results-content"><div class="error-state"><div class="spinner" style="margin:0 auto"></div></div></div>
@@ -2786,20 +2786,136 @@ async function deleteAssessment() {
 }
 
 // =====================================================
-// EXPORT CSV
+// EXPORT XLSX
 // =====================================================
-function exportCSV() {
-  let csv = 'student_id,name,group,peer_average,override,final_mark,failed\n';
+async function exportCSV() {
+  // Ensure we have the latest reviews data
+  const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.AssignmentId == appState.assignment.id);
+  const reviews = rItems.map(i => ({ id: i.id, ...i.fields }));
+
+  const assignmentTitle = appState.assignment?.Title?.replace(/[^a-zA-Z0-9]/g, '_') || 'Assessment';
+  const moduleCode = appState.assignment?.ModuleCode || '';
+
+  // ============ Sheet 1: Summary Results ============
+  const summaryData = [
+    ['PeerMark Export - Summary Results'],
+    [`Assessment: ${appState.assignment?.Title || 'Untitled'}`],
+    [`Module: ${moduleCode}`],
+    [`Exported: ${new Date().toLocaleString()}`],
+    [],
+    ['Student ID', 'Name', 'Group', 'Status', 'Reviews Received', 'Peer Average (%)', 'Override (%)', 'Final Mark (%)']
+  ];
+
   appState.students.forEach(s => {
     const result = appState.results.find(r => r.StudentId === s.StudentId);
-    const group = appState.groups.find(g => g.id === s.GroupId)?.Title || '';
-    csv += `${s.StudentId},"${s.Title}","${group}",${result?.PeerAverage ?? ''},${result?.InstructorOverride ?? ''},${result?.FinalMark ?? ''},${s.Failed ? 'yes' : 'no'}\n`;
+    const group = appState.groups.find(g => String(g.id) === String(s.GroupId))?.Title || '';
+
+    // Calculate status
+    let status = 'Pending';
+    if (s.Failed) status = 'Non-submitter';
+    else if (s.CompletedAllReviews) status = 'Complete';
+
+    // Calculate peer average from reviews
+    const validReviews = reviews.filter(r => r.RevieweeStudentId === s.StudentId && r.ValidForAggregation);
+    const scores = validReviews.map(r => r.WeightedScore);
+    const peerAvg = scores.length > 0
+      ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
+      : '';
+
+    // Final mark logic
+    let finalMark = '';
+    if (s.Failed) {
+      finalMark = '0';
+    } else if (result?.FinalMark != null) {
+      finalMark = result.FinalMark.toFixed(1);
+    }
+
+    summaryData.push([
+      s.StudentId || '',
+      s.Title || '',
+      group,
+      status,
+      scores.length.toString(),
+      peerAvg,
+      result?.InstructorOverride != null ? result.InstructorOverride.toString() : '',
+      finalMark
+    ]);
   });
-  const a = document.createElement('a');
-  a.href = 'data:text/csv,' + encodeURIComponent(csv);
-  a.download = `peermark_results_${appState.assignment?.ModuleCode || 'export'}.csv`;
-  a.click();
-  showToast('CSV exported', 'info');
+
+  // ============ Sheet 2: All Responses ============
+  const responsesData = [
+    ['PeerMark Export - All Individual Responses'],
+    [`Assessment: ${appState.assignment?.Title || 'Untitled'}`],
+    [`Module: ${moduleCode}`],
+    [`Exported: ${new Date().toLocaleString()}`},
+    [],
+    ['Reviewer ID', 'Reviewer Name', 'Reviewee ID', 'Reviewee Name', 'Valid for Aggregation', 'Scores (JSON)', 'Weighted Score (%)', 'Submitted At']
+  ];
+
+  reviews.forEach(r => {
+    const reviewer = appState.students.find(s => s.StudentId === r.ReviewerStudentId);
+    const reviewee = appState.students.find(s => s.StudentId === r.RevieweeStudentId);
+
+    // Parse scores JSON
+    let scoresStr = '';
+    try {
+      const scores = JSON.parse(r.ScoresJSON || '[]');
+      scoresStr = scores.map((s, i) => `Q${i + 1}: ${s === 1 ? 'Yes' : s === 0 ? 'No' : '—'}`).join('; ');
+    } catch (e) {
+      scoresStr = r.ScoresJSON || '';
+    }
+
+    responsesData.push([
+      r.ReviewerStudentId || '',
+      reviewer?.Title || '',
+      r.RevieweeStudentId || '',
+      reviewee?.Title || '',
+      r.ValidForAggregation ? 'Yes' : 'No',
+      scoresStr,
+      r.WeightedScore?.toFixed(1) || '',
+      r.SubmittedAt ? new Date(r.SubmittedAt).toLocaleString() : ''
+    ]);
+  });
+
+  // ============ Create Workbook ============
+  const wb = XLSX.utils.book_new();
+
+  // Sheet 1: Summary
+  const ws1 = XLSX.utils.aoa_to_sheet(summaryData);
+
+  // Set column widths for summary sheet
+  ws1['!cols'] = [
+    { wch: 15 },  // Student ID
+    { wch: 25 },  // Name
+    { wch: 20 },  // Group
+    { wch: 15 },  // Status
+    { wch: 12 },  // Reviews Received
+    { wch: 15 },  // Peer Average
+    { wch: 12 },  // Override
+    { wch: 12 }   // Final Mark
+  ];
+
+  // Sheet 2: Responses
+  const ws2 = XLSX.utils.aoa_to_sheet(responsesData);
+  ws2['!cols'] = [
+    { wch: 15 },  // Reviewer ID
+    { wch: 25 },  // Reviewer Name
+    { wch: 15 },  // Reviewee ID
+    { wch: 25 },  // Reviewee Name
+    { wch: 18 },  // Valid for Aggregation
+    { wch: 50 },  // Scores
+    { wch: 18 },  // Weighted Score
+    { wch: 20 }   // Submitted At
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws1, 'Summary Results');
+  XLSX.utils.book_append_sheet(wb, ws2, 'All Responses');
+
+  // Generate and download
+  const fileName = `peermark_${moduleCode || assignmentTitle}_${new Date().toISOString().split('T')[0]}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+
+  showToast('XLSX exported with 2 sheets', 'info');
 }
 
 // =====================================================
