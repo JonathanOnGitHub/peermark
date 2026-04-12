@@ -1160,7 +1160,7 @@ async function loadMyData() {
   // Load peers (same group, not self)
   const groupId = appState.myStudent.GroupId;
   appState.myPeers = appState.students.filter(s =>
-    s.GroupId === groupId && s.Email !== email
+    String(s.GroupId) === String(groupId) && s.Email !== email
   );
 
   // Load my submitted reviews
@@ -1525,7 +1525,7 @@ function renderStudents() {
       return;
     }
 
-    const groupMembers = appState.students.filter(s => s.GroupId === myStudent.GroupId && s.id !== myStudent.id);
+    const groupMembers = appState.students.filter(s => String(s.GroupId) === String(myStudent.GroupId) && s.id !== myStudent.id);
     document.getElementById('students-content').innerHTML = `
       <div class="card" style="margin-bottom:1rem">
         <h3 style="margin-bottom:0.5rem">Your Group</h3>
