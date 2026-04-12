@@ -2343,16 +2343,56 @@ async function renderResults() {
 function renderResultsInstructor() {
   const rows = appState.students.map(s => {
     const result = appState.results.find(r => r.StudentId === s.StudentId);
-    const finalMark = s.Failed ? 0 : (result?.FinalMark ?? '—');
-    const pct = typeof finalMark === 'number' ? finalMark : 0;
-    const color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    const group = appState.groups.find(g => String(g.id) === String(s.GroupId));
+
+    // Determine status
+    let statusBadge;
+    if (s.Failed) {
+      statusBadge = '<span class="badge badge-red">Non-submitter</span>';
+    } else if (s.CompletedAllReviews) {
+      statusBadge = '<span class="badge badge-green">Complete</span>';
+    } else {
+      statusBadge = '<span class="badge badge-amber">Pending</span>';
+    }
+
+    // Calculate final mark
+    let finalMark = '—';
+    let pct = 0;
+    let color = 'var(--text3)';
+
+    if (s.Failed) {
+      finalMark = 0;
+      pct = 0;
+      color = 'var(--red)';
+    } else if (result?.FinalMark != null) {
+      // Results have been released
+      finalMark = result.FinalMark;
+      pct = finalMark;
+      color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+    } else if (appState.assignment?.Released) {
+      // Assignment released but no result found - calculate from reviews
+      finalMark = 'No data';
+    } else {
+      // Results not yet released - show peer average from reviews
+      const validReviews = appState.reviews.filter(r =>
+        r.RevieweeStudentId === s.StudentId && r.ValidForAggregation
+      );
+      const scores = validReviews.map(r => r.WeightedScore);
+      if (scores.length > 0) {
+        const peerAvg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length * 10) / 10;
+        finalMark = peerAvg;
+        pct = peerAvg;
+        color = pct >= 70 ? 'var(--green)' : pct >= 50 ? 'var(--amber)' : 'var(--red)';
+      }
+    }
+
     return `<tr>
       <td style="font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text3)">${s.StudentId}</td>
       <td style="font-weight:500">${s.Title}</td>
-      <td>${appState.groups.find(g => g.id === s.GroupId)?.Title || '—'}</td>
-      <td>${s.Failed ? '<span class="badge badge-red">Non-submitter</span>' : '<span class="badge badge-green">Complete</span>'}</td>
-      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${typeof finalMark === 'number' ? finalMark + '%' : finalMark}</div></div></td>
-      <td>${result?.InstructorOverride != null ? `<span class="badge badge-amber">Override: ${result.InstructorOverride}</span>` : '—'}</td>
+      <td>${group?.Title || '—'}</td>
+      <td>${statusBadge}</td>
+      <td><div class="bar-wrap"><div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><div class="bar-num" style="color:${color}">${pct > 0 ? finalMark + '%' : finalMark}</div></div></td>
+      <td>${result?.InstructorOverride != null ? `<span class="badge badge-amber">Override: ${result.InstructorOverride}%</span>` : '—'}</td>
       <td><button class="btn btn-ghost btn-xs" onclick="showStudentDetail('${s.StudentId}')">Detail</button></td>
     </tr>`;
   }).join('');
