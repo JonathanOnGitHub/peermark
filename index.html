@@ -757,14 +757,17 @@ function switchMode(mode) {
 // Update tab visibility based on effective role and current assignment
 function updateTabVisibility() {
   const isInstructor = isInstructorMode();
-  const isStudent = !isInstructor;
   const hasAssignment = appState.assignment !== null;
 
-  // Dashboard - always visible
-  document.getElementById('tab-dashboard').classList.remove('hidden');
+  // Dashboard - only for instructors
+  if (isInstructor) {
+    document.getElementById('tab-dashboard').classList.remove('hidden');
+  } else {
+    document.getElementById('tab-dashboard').classList.add('hidden');
+  }
 
-  // Overview - visible when there's an assignment (both views)
-  if (hasAssignment) {
+  // Overview - only for instructors
+  if (isInstructor && hasAssignment) {
     document.getElementById('tab-overview').classList.remove('hidden');
   } else {
     document.getElementById('tab-overview').classList.add('hidden');
@@ -798,7 +801,7 @@ function updateTabVisibility() {
     document.getElementById('tab-moderation').classList.add('hidden');
   }
 
-  // Results tab - visible to everyone when assignment exists
+  // Results tab - visible to everyone when assignment exists (students need to see grades)
   if (hasAssignment) {
     document.getElementById('tab-results').classList.remove('hidden');
   } else {
