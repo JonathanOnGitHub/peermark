@@ -1006,7 +1006,8 @@ async function loadApp(assignmentToLoad = null) {
     // Load groups and students in background
     if (appState.assignment) {
       await loadGroupsAndStudents();
-      if (isStudentMode()) await loadMyData();
+      // Always load current user's student data (even in instructor mode for testing)
+      await loadMyData();
     }
 
   } catch (err) {
@@ -1048,7 +1049,8 @@ async function loadAppWithUUID(uuid) {
     // Load groups and students - always for instructor view
     if (appState.assignment) {
       await loadGroupsAndStudents();
-      if (isStudentMode()) await loadMyData();
+      // Always load current user's student data (even in instructor mode for testing)
+      await loadMyData();
     }
 
     // Refresh dashboard to show assignment link
@@ -1183,9 +1185,15 @@ async function linkExistingDataToAssignment() {
 
 async function loadMyData() {
   const email = currentUser.email;
-  const sItems = (await graphGetAll(listPath('students', '?$expand=fields'))).filter(i => i.fields.Email?.toLowerCase() == email && i.fields.AssignmentId == appState.assignment.id);
+  // Use String() for consistent type comparison with SharePoint IDs
+  const assignmentId = String(appState.assignment.id);
+  const sItems = (await graphGetAll(listPath('students', '?$expand=fields'))).filter(i =>
+    i.fields.Email?.toLowerCase() == email && String(i.fields.AssignmentId) === assignmentId
+  );
   if (sItems.length === 0) {
     appState.myStudent = null;
+    appState.myPeers = [];
+    appState.myReviews = [];
     return;
   }
   appState.myStudent = { id: sItems[0].id, ...sItems[0].fields };
@@ -1197,7 +1205,9 @@ async function loadMyData() {
   );
 
   // Load my submitted reviews
-  const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i => i.fields.ReviewerEmail?.toLowerCase() == email && i.fields.AssignmentId == appState.assignment.id);
+  const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i =>
+    i.fields.ReviewerEmail?.toLowerCase() == email && String(i.fields.AssignmentId) === assignmentId
+  );
   appState.myReviews = rItems.map(i => ({ id: i.id, ...i.fields }));
 }
 
