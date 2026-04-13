@@ -951,34 +951,47 @@ function listPath(listName, extra = '') {
 // =====================================================
 // LOAD APP DATA
 // =====================================================
-async function loadApp() {
+async function loadApp(assignmentToLoad = null) {
   setLoading("Loading assignment…");
   try {
-    // Load the most recent assignment
-    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$top=10'));
-    if (items.length > 0) {
-      appState.assignment = { id: items[0].id, ...items[0].fields };
-
-      // Check if UUID already exists in SharePoint
+    // If a specific assignment is provided, use it; otherwise load the most recent
+    if (assignmentToLoad) {
+      appState.assignment = assignmentToLoad;
+      // Ensure UUID is set
       if (appState.assignment.PM_UUID) {
         appState.assignmentUUID = appState.assignment.PM_UUID;
-        console.log('Loaded UUID from SharePoint:', appState.assignmentUUID);
       } else {
-        // Generate UUID and save to SharePoint
         appState.assignmentUUID = generateUUID();
-        try {
-          await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
-            fields: { PM_UUID: appState.assignmentUUID }
-          });
-          console.log('Generated and saved UUID to SharePoint:', appState.assignmentUUID);
-        } catch (e) {
-          // Field might not exist in SharePoint - just use localStorage
-          console.log('UUID field not in SharePoint, using localStorage:', appState.assignmentUUID);
-          localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
-        }
+        localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
+        localStorage.setItem('pm_aid_' + appState.assignmentUUID, appState.assignment.id);
       }
-      // Also save to localStorage for backup
-      localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
+    } else {
+      // Load the most recent assignment
+      const items = await graphGetAll(listPath('assignments', '?$expand=fields&$top=10'));
+      if (items.length > 0) {
+        appState.assignment = { id: items[0].id, ...items[0].fields };
+
+        // Check if UUID already exists in SharePoint
+        if (appState.assignment.PM_UUID) {
+          appState.assignmentUUID = appState.assignment.PM_UUID;
+          console.log('Loaded UUID from SharePoint:', appState.assignmentUUID);
+        } else {
+          // Generate UUID and save to SharePoint
+          appState.assignmentUUID = generateUUID();
+          try {
+            await graph('PATCH', listPath('assignments', '/' + appState.assignment.id), {
+              fields: { PM_UUID: appState.assignmentUUID }
+            });
+            console.log('Generated and saved UUID to SharePoint:', appState.assignmentUUID);
+          } catch (e) {
+            // Field might not exist in SharePoint - just use localStorage
+            console.log('UUID field not in SharePoint, using localStorage:', appState.assignmentUUID);
+            localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
+          }
+        }
+        // Also save to localStorage for backup
+        localStorage.setItem('pm_uuid_' + appState.assignment.id, appState.assignmentUUID);
+      }
     }
 
     // Load criteria
@@ -1398,8 +1411,7 @@ async function selectAssignmentById(assignmentId) {
   try {
     const a = await loadAssignmentById(assignmentId);
     if (a) {
-      appState.assignment = a;
-      await loadApp();
+      await loadApp(a);
       updateTabVisibility();
       // Navigate to Overview
       nav('overview');
@@ -2769,8 +2781,7 @@ async function selectAssignment(assignmentId) {
   try {
     const a = await loadAssignmentById(assignmentId);
     if (a) {
-      appState.assignment = a;
-      await loadApp();
+      await loadApp(a);
       updateTabVisibility();
       // Refresh dashboard to show active assignment
       loadAllAssignments();
