@@ -523,7 +523,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
         <div style="background:var(--accent);color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">1</div>
         <div>
           <div style="font-weight:600;margin-bottom:0.4rem">Create an assignment</div>
-          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">On the Dashboard, click <strong>+ New Assignment</strong>. Enter the title, module code, submission deadline, marking deadline, max score per criterion, and whether marking should be anonymous. This creates a record in SharePoint.</p>
+          <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">On the Dashboard, click <strong>+ New Assignment</strong>. Enter the title, module code, submission deadline, marking deadline, and max score per criterion. This creates a record in SharePoint.</p>
         </div>
       </div>
     </div>
@@ -628,7 +628,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
       <div style="background:var(--uon-green);color:#0a2e1e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.85rem;flex-shrink:0">4</div>
       <div>
         <div style="font-weight:600;margin-bottom:0.4rem">View your results</div>
-        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Once your instructor has released results, go to the <strong>Results</strong> tab. You will see your final mark, a breakdown by criterion, and the scores from each peer reviewer (shown anonymously if the instructor has enabled anonymous marking).</p>
+        <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Once your instructor has released results, go to the <strong>Results</strong> tab. You will see your final mark, a breakdown by criterion, and the scores from each peer reviewer.</p>
       </div>
     </div>
   </div>
@@ -646,7 +646,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     </div>
     <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
       <div style="font-weight:600;margin-bottom:0.35rem">Will my peers know what score I gave them?</div>
-      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">If the instructor has enabled anonymous marking, peer names are hidden during the marking process and individual reviewers are shown only as "Peer 1", "Peer 2" etc. on the results page. The instructor can always see who submitted what.</p>
+      <p style="color:var(--text2);font-size:0.88rem;line-height:1.6">Peer reviewers' names are visible on the results page. The instructor can always see who submitted what.</p>
     </div>
     <div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border)">
       <div style="font-weight:600;margin-bottom:0.35rem">How is my final mark calculated?</div>
@@ -2030,7 +2030,7 @@ function renderMarkingStudent() {
 
   const cards = peers.map(peer => {
     const isDone = reviewed.includes(peer.StudentId);
-    const displayName = appState.assignment?.Anonymous ? `Peer (${peer.StudentId})` : peer.Title;
+    const displayName = peer.Title;
     if (isDone) {
       return `<div class="mark-peer-card" style="border-color:rgba(62,207,142,0.25)">
         <div style="display:flex;justify-content:space-between;align-items:center">
@@ -2690,7 +2690,6 @@ async function createAssignment() {
         SubmissionDeadline: document.getElementById('m-sub').value,
         MarkingDeadline:    document.getElementById('m-mark').value,
         MaxScore:           parseInt(document.getElementById('m-scale').value),
-        Anonymous:          document.getElementById('m-anon').value === '1',
         Released:           false,
         CreatedByEmail:     currentUser.email,
         PM_UUID:            assignmentUUID
