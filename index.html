@@ -1007,7 +1007,7 @@ async function loadAppWithUUID(uuid) {
   setLoading("Loading assignment…");
   try {
     // Load all assignments and find by PM_UUID field
-    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$orderby=fields/CreatedAt desc&$top=100'));
+    const items = await graphGetAll(listPath('assignments', '?$expand=fields&$top=100'));
     const assignment = items.find(i => i.fields.PM_UUID === uuid);
 
     if (assignment) {
@@ -1191,7 +1191,7 @@ async function loadMyData() {
 // =====================================================
 // NAV
 // =====================================================
-function nav(page) {
+function nav(page, pushState = true) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + page).classList.add('active');
@@ -1208,7 +1208,26 @@ function nav(page) {
     help: renderHelp
   };
   if (renders[page]) renders[page]();
+
+  if (pushState) {
+    const base = window.location.hash.replace(/#\/page\/\w+$/, '').replace(/^$/, window.location.hash) || window.location.hash;
+    // Build new hash preserving assignment UUID if present
+    const uuidMatch = window.location.hash.match(/\/assessment\/([a-f0-9-]{36})/i);
+    const uuidPart = uuidMatch ? `/assessment/${uuidMatch[1]}` : '';
+    history.pushState({ page }, '', `#${uuidPart}/page/${page}`);
+  }
 }
+
+window.addEventListener('popstate', function(e) {
+  const page = e.state?.page;
+  if (page) {
+    nav(page, false);
+  } else {
+    // Try to parse from hash
+    const match = window.location.hash.match(/\/page\/(\w+)/);
+    if (match) nav(match[1], false);
+  }
+});
 
 // =====================================================
 // TOAST / LOADING
@@ -2055,11 +2074,14 @@ function renderMarkingStudent() {
           <div style="flex:1">
             <div style="font-weight:500;font-size:0.9rem">${label}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:0.75rem;width:240px">
-            <input type="checkbox" id="sl-${peer.StudentId}-${i}" ${defaultVal === 1 ? 'checked' : ''}
-              oninput="document.getElementById('sv-${peer.StudentId}-${i}').textContent=this.checked ? 'Yes' : 'No'">
-            <label for="sl-${peer.StudentId}-${i}" style="cursor:pointer;user-select:none;">Yes</label>
-            <div class="slider-val" id="sv-${peer.StudentId}-${i}">${defaultVal === 1 ? 'Yes' : 'No'}</div>
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <input type="hidden" id="sl-${peer.StudentId}-${i}" value="${defaultVal}">
+            <button type="button" id="btn-yes-${peer.StudentId}-${i}"
+              onclick="setYesNo('${peer.StudentId}',${i},1)"
+              style="padding:0.3rem 0.85rem;border-radius:6px;border:1px solid var(--border2);cursor:pointer;font-size:0.82rem;font-weight:600;font-family:inherit;background:${defaultVal===1?'var(--uon-green)':'var(--surface2)'};color:${defaultVal===1?'white':'var(--text2)'};transition:all 0.15s">Yes</button>
+            <button type="button" id="btn-no-${peer.StudentId}-${i}"
+              onclick="setYesNo('${peer.StudentId}',${i},0)"
+              style="padding:0.3rem 0.85rem;border-radius:6px;border:1px solid var(--border2);cursor:pointer;font-size:0.82rem;font-weight:600;font-family:inherit;background:${defaultVal===0?'var(--uon-red)':'var(--surface2)'};color:${defaultVal===0?'white':'var(--text2)'};transition:all 0.15s">No</button>
           </div>
         </div>`;
       }).join('')}
@@ -2072,6 +2094,22 @@ function renderMarkingStudent() {
   document.getElementById('marking-content').innerHTML = cards;
 }
 
+// Yes/No toggle for marking
+function setYesNo(studentId, qIndex, value) {
+  const hidden = document.getElementById(`sl-${studentId}-${qIndex}`);
+  const btnYes = document.getElementById(`btn-yes-${studentId}-${qIndex}`);
+  const btnNo  = document.getElementById(`btn-no-${studentId}-${qIndex}`);
+  if (!hidden) return;
+  hidden.value = value;
+  if (value === 1) {
+    btnYes.style.background = 'var(--uon-green)'; btnYes.style.color = 'white';
+    btnNo.style.background  = 'var(--surface2)';  btnNo.style.color  = 'var(--text2)';
+  } else {
+    btnNo.style.background  = 'var(--uon-red)';   btnNo.style.color  = 'white';
+    btnYes.style.background = 'var(--surface2)';  btnYes.style.color = 'var(--text2)';
+  }
+}
+
 // Store the reviewee ID being confirmed
 let pendingReviewId = null;
 
@@ -2082,7 +2120,7 @@ function showReviewConfirm(revieweeStudentId) {
   // Build summary of marks
   const scores = QUESTIONS.map((q, i) => {
     const el = document.getElementById(`sl-${revieweeStudentId}-${i}`);
-    const checked = el && el.checked;
+    const checked = el && el.value === '1';
     const label = q.replace(/^X/, reviewee.Title);
     return `<div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border)">
       <span style="color:var(--text2);flex:1">${label}</span>
@@ -2092,7 +2130,7 @@ function showReviewConfirm(revieweeStudentId) {
 
   const totalYes = scores.filter((_, i) => {
     const el = document.getElementById(`sl-${revieweeStudentId}-${i}`);
-    return el && el.checked;
+    return el && el.value === '1';
   }).length;
 
   document.getElementById('review-confirm-content').innerHTML = `
@@ -2125,7 +2163,7 @@ async function confirmReviewSubmit() {
     const scale = 1;
     const scores = QUESTIONS.map((_, i) => {
       const el = document.getElementById(`sl-${revieweeStudentId}-${i}`);
-      return el && el.checked ? 1 : 0;
+      return el && el.value === '1' ? 1 : 0;
     });
     const weightedScore = (scores.reduce((sum, s) => sum + s, 0) / scores.length / scale) * 100;
 
