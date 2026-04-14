@@ -1095,6 +1095,8 @@ async function loadAppWithUUID(uuid) {
 async function loadGroupsAndStudents() {
   console.log('=== Loading Groups & Students ===');
   console.log('Current assignment ID:', appState.assignment?.id);
+  console.log('Current assignment UUID:', appState.assignmentUUID);
+  console.log('Current assignment Title:', appState.assignment?.Title);
 
   const [gItems, sItems, rItems] = await Promise.all([
     graphGetAll(listPath('groups', '?$expand=fields')),
@@ -2897,15 +2899,32 @@ async function createAssignment() {
 
     appState.assignment = { id: res.id, ...res.fields };
     appState.assignmentUUID = assignmentUUID;
+    console.log('=== NEW ASSIGNMENT CREATED ===');
+    console.log('Assignment ID:', res.id);
+    console.log('Assignment Title:', res.fields.Title);
+    console.log('Assignment UUID:', assignmentUUID);
+
+    // Update URL hash to reflect the new assignment
+    history.replaceState({}, '', `#/assessment/${assignmentUUID}/page/overview`);
+
     closeModal('modal-new');
     showToast('Assessment created successfully');
     btn.disabled = false;
     btn.textContent = 'Create →';
 
+    // Clear stale groups and students for the new assignment
+    appState.groups = [];
+    appState.students = [];
+
     // Refresh dashboard and switch to overview
     await loadAllAssignments();
     updateTabVisibility();
     nav('overview');
+
+    // Load groups and students for the new assignment
+    await loadGroupsAndStudents();
+    await loadMyData();
+    renderDashboard(); // Refresh dashboard with correct stats
 
   } catch (err) {
     showToast('Error: ' + err.message, 'error');
