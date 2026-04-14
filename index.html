@@ -1282,7 +1282,7 @@ async function loadMyData() {
 
   // Load my submitted reviews
   const rItems = (await graphGetAll(listPath('reviews', '?$expand=fields'))).filter(i =>
-    i.fields.ReviewerEmail?.toLowerCase() == email && String(i.fields.AssignmentId) === assignmentId
+    i.fields.ReviewerEmail?.toLowerCase() == primaryEmail && String(i.fields.AssignmentId) === assignmentId
   );
   appState.myReviews = rItems.map(i => ({ id: i.id, ...i.fields }));
 }
