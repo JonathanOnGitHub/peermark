@@ -698,7 +698,8 @@ const CONFIG = {
     students:    "4fe3d9d8-2ca5-40cc-b904-99df54ef8811",
     criteria:    "f6e2d95b-20e9-4d7b-a1b7-c1eadac1bfc7",
     reviews:     "04e90ff5-51d2-4188-8be4-5535060ec3e9",
-    results:     "edc6519e-10f6-476c-b8ba-5fce462ff4b3"
+    results:     "edc6519e-10f6-476c-b8ba-5fce462ff4b3",
+    accessErrorLog: "9025309f-ebf3-4865-b98c-24b3825e3ed7"
   },
   // Instructor emails — add yours and any colleagues here
   instructors: [
@@ -1270,6 +1271,37 @@ async function loadMyData() {
     };
     accessLog.push(logEntry);
     console.warn('=== PEERMARK ACCESS FAILURE ===', logEntry);
+
+    // Persist to SharePoint accessErrorLog list
+    try {
+      const token = await getToken();
+      await fetch(`${GRAPH}/sites/${CONFIG.siteId}/lists/${CONFIG.lists.accessErrorLog}/items`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fields: {
+            Title: `${primaryEmail} - ${assignmentId}`,
+            Timestamp: logEntry.timestamp,
+            Email: logEntry.email,
+            Name: logEntry.name,
+            AssignmentId: parseInt(logEntry.assignmentId) || 0,
+            AssignmentTitle: logEntry.assignmentTitle,
+            Reason: logEntry.reason,
+            AliasesChecked: logEntry.aliasesChecked.join('; '),
+            EmailMatchCount: logEntry.emailMatchCount,
+            AssignmentMatchCount: logEntry.assignmentMatchCount,
+            EnrolledEmails: logEntry.enrolledEmails.join('; ')
+          }
+        })
+      });
+      console.log('Access failure logged to SharePoint');
+    } catch (err) {
+      console.error('Failed to persist access log to SharePoint:', err);
+    }
+
     return;
   }
   appState.myStudent = { id: sItems[0].id, ...sItems[0].fields };
