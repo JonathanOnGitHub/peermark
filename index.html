@@ -1977,7 +1977,7 @@ function renderOverview() {
 
   // Assessment info
   const releaseStatus = a.Released ? '<span class="badge badge-green">Results Released</span>' : '<span class="badge badge-amber">Results Pending</span>';
-  const deadline = a.Deadline ? new Date(a.Deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not set';
+  const deadline = a.MarkingDeadline ? new Date(a.MarkingDeadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not set';
   const created = a.Created ? new Date(a.Created).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Unknown';
 
   document.getElementById('overview-content').innerHTML = `
@@ -2916,14 +2916,14 @@ async function createAssignment() {
     appState.groups = [];
     appState.students = [];
 
-    // Refresh dashboard and switch to overview
+    // Load groups and students for the new assignment FIRST
+    await loadGroupsAndStudents();
+    await loadMyData();
+
+    // Then refresh dashboard and switch to overview
     await loadAllAssignments();
     updateTabVisibility();
     nav('overview');
-
-    // Load groups and students for the new assignment
-    await loadGroupsAndStudents();
-    await loadMyData();
     renderDashboard(); // Refresh dashboard with correct stats
 
   } catch (err) {
